@@ -12,14 +12,17 @@ use std::{
 pub struct Searcher(Rc<RefCell<Internal>>);
 
 impl Searcher {
+    #[inline]
     pub fn new(graph: GraphTopo) -> Self {
         Self(Rc::new(RefCell::new(Internal::new(graph))))
     }
 
+    #[inline]
     pub fn nodes(&self) -> Nodes {
         Nodes(Rc::downgrade(&self.0))
     }
 
+    #[inline]
     pub fn edges(&self) -> Edges {
         Edges(Rc::downgrade(&self.0))
     }
@@ -92,6 +95,7 @@ impl IntoIterator for Nodes {
     type Item = Node;
     type IntoIter = NodeIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         NodeIter(self.0, 0)
     }

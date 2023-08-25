@@ -60,6 +60,7 @@ pub struct EdgeRef(usize);
 
 impl GraphTopo {
     /// 向图中添加一条全图入边，返回指向该边的引用。
+    #[inline]
     pub fn add_edge(&mut self) -> EdgeRef {
         self.edges.push(Edge { output_idx: -1 });
         EdgeRef(self.edges.len() - 1)
@@ -92,6 +93,7 @@ impl GraphTopo {
     }
 
     /// 将一个边标记为按顺序的全图出边。
+    #[inline]
     pub fn mark_output(&mut self, edge: EdgeRef) {
         assert_eq!(self.edges[edge.0].output_idx, -1);
         let max = self.edges.iter().map(|e| e.output_idx).max().unwrap_or(-1);
