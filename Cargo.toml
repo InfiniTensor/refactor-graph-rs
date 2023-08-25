@@ -1,2 +1,2 @@
 [workspace]
-members = ["graph-topo"]
+members = ["graph-topo", "computation"]

@@ -45,6 +45,7 @@ pub struct NodeRef {
 }
 
 impl NodeRef {
+    /// 取出节点的第 `idx` 个出边。
     #[inline]
     pub fn get_output(&self, idx: usize) -> EdgeRef {
         assert!(idx < self.outputs_len);

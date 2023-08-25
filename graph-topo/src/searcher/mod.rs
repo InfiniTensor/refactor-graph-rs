@@ -65,11 +65,19 @@ pub struct Nodes(Weak<RefCell<Internal>>);
 pub struct NodeIter(Weak<RefCell<Internal>>, usize);
 
 impl Nodes {
+    #[inline]
     pub fn get(&self, idx: usize) -> Node {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
         assert!(idx < internal.nodes.len());
         Node(self.0.clone(), idx)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        let internal = self.0.upgrade().expect("Graph has been dropped");
+        let internal = internal.borrow();
+        internal.nodes.is_empty()
     }
 
     #[inline]
@@ -172,11 +180,19 @@ pub struct Edges(Weak<RefCell<Internal>>);
 pub struct EdgeIter(Weak<RefCell<Internal>>, usize);
 
 impl Edges {
+    #[inline]
     pub fn get(&self, idx: usize) -> Edge {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
         assert!(idx < internal.edges.len());
         Edge(self.0.clone(), idx)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        let internal = self.0.upgrade().expect("Graph has been dropped");
+        let internal = internal.borrow();
+        internal.edges.is_empty()
     }
 
     #[inline]
