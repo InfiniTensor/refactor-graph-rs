@@ -1,3 +1,5 @@
-mod graph_topo;
+mod container;
+mod searcher;
 
-pub use graph_topo::{EdgeRef, GraphTopo, NodeRef};
+pub use container::{EdgeRef, GraphTopo, NodeRef};
+pub use searcher::{Node, Nodes, Searcher as GraphTopoSearcher};
