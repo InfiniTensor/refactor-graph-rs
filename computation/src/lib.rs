@@ -7,5 +7,5 @@ mod op_type;
 
 pub use edge::Edge;
 pub use graph::Graph;
-pub use node::Node;
+pub use node::{Attribute, Node};
 pub use op_type::OpType;
