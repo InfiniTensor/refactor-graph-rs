@@ -11,10 +11,23 @@ use std::{
 
 pub struct Searcher(Rc<RefCell<Internal>>);
 
+impl Default for Searcher {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Searcher {
     #[inline]
-    pub fn new(graph: GraphTopo) -> Self {
-        Self(Rc::new(RefCell::new(Internal::new(graph))))
+    pub fn new() -> Self {
+        Self(Rc::new(RefCell::new(Internal {
+            graph: GraphTopo::default(),
+            global_inputs: vec![],
+            global_outputs: vec![],
+            nodes: vec![],
+            edges: vec![],
+        })))
     }
 
     #[inline]
@@ -69,7 +82,7 @@ impl Clone for Searcher {
 impl From<GraphTopo> for Searcher {
     #[inline]
     fn from(value: GraphTopo) -> Self {
-        Self::new(value)
+        Self(Rc::new(RefCell::new(Internal::new(value))))
     }
 }
 
@@ -196,6 +209,23 @@ impl Node {
 
 pub struct Edges(Weak<RefCell<Internal>>);
 
+impl PartialEq for Edge {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_ptr() == other.0.as_ptr() && self.1 == other.1
+    }
+}
+
+impl Eq for Edge {}
+
+impl Hash for Edge {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.as_ptr().hash(state);
+        self.1.hash(state);
+    }
+}
+
 pub struct EdgeIter(Weak<RefCell<Internal>>, usize);
 
 impl Edges {
@@ -294,7 +324,7 @@ fn test() {
     let e6 = n2.get_output(0); // |6
     graph.mark_outputs([e6, e4]); // |6 -> <0, |4 -> <1
 
-    let searcher = Searcher::new(graph);
+    let searcher = Searcher::from(graph);
     {
         let global_inputs = searcher.global_inputs();
         assert_eq!(global_inputs.len(), 3);
