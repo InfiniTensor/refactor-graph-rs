@@ -31,23 +31,13 @@ jobs:
       - name: Run test
         run: cargo test --lib
 
-      - name: Install clippy-sarif
-        uses: actions-rs/install@v0.1
-        with:
-          crate: clippy-sarif
-          version: latest
-
-      - name: Install sarif-fmt
-        uses: actions-rs/install@v0.1
-        with:
-          crate: sarif-fmt
-          version: latest
+      - name: Install required cargo
+        run: cargo install clippy-sarif sarif-fmt
 
       - name: Run rust-clippy
         run:
           cargo clippy
-          --all-featuers
-          --package fast-trap
+          --all-features
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
