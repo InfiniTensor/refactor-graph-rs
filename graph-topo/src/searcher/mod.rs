@@ -46,6 +46,16 @@ impl Searcher {
             .map(|i| Edge(weak.clone(), *i))
             .collect()
     }
+
+    #[inline]
+    pub fn contains_node(&self, node: &Node) -> bool {
+        node.0.ptr_eq(&Rc::downgrade(&self.0))
+    }
+
+    #[inline]
+    pub fn contains_edge(&self, edge: &Edge) -> bool {
+        edge.0.ptr_eq(&Rc::downgrade(&self.0))
+    }
 }
 
 impl Clone for Searcher {
@@ -138,6 +148,11 @@ impl Hash for Node {
 }
 
 impl Node {
+    #[inline]
+    pub const fn index(&self) -> usize {
+        self.1
+    }
+
     pub fn inputs(&self) -> Vec<Edge> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let graph = &internal.borrow().graph;
@@ -237,6 +252,11 @@ impl Iterator for EdgeIter {
 pub struct Edge(Weak<RefCell<Internal>>, usize);
 
 impl Edge {
+    #[inline]
+    pub const fn index(&self) -> usize {
+        self.1
+    }
+
     pub fn source(&self) -> Option<Node> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();

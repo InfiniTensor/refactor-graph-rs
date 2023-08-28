@@ -1,28 +1,36 @@
+use crate::{Graph, OpType};
 use std::collections::HashMap;
 
-use crate::{Graph, OpType};
-
 pub enum Node {
-    Op(Operator),
-    Subgraph(Subgraph),
+    Op {
+        op_type: OpType,
+        attributes: HashMap<String, Attribute>,
+    },
+    Subgraph(Box<Graph>),
 }
 
-pub struct Operator {
-    pub op_type: OpType,
-    pub attributes: Attributes,
+impl Default for Node {
+    #[inline]
+    fn default() -> Self {
+        Self::Op {
+            op_type: Default::default(),
+            attributes: Default::default(),
+        }
+    }
 }
 
-pub struct Subgraph(Box<Graph>);
-
-pub struct Attributes(HashMap<String, Attribute>);
-
+#[derive(Debug)]
 pub enum Attribute {
-    Float(f32),
     Int(i64),
-    String(String),
-    Tensor(Vec<u8>),
-    Floats(Vec<f32>),
     Ints(Vec<i64>),
+    Float(f64),
+    Floats(Vec<f64>),
+    String(String),
     Strings(Vec<String>),
-    Tensors(Vec<Vec<u8>>),
+}
+
+impl From<Graph> for Node {
+    fn from(value: Graph) -> Self {
+        Self::Subgraph(Box::new(value))
+    }
 }

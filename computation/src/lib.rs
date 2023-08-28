@@ -4,6 +4,7 @@ mod edge;
 mod graph;
 mod node;
 mod op_type;
+mod subgraph;
 
 pub use edge::Edge;
 pub use graph::Graph;

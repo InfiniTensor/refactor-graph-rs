@@ -59,6 +59,15 @@ impl NodeRef {
 pub struct EdgeRef(usize);
 
 impl GraphTopo {
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            targets: Vec::new(),
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+
     /// 向图中添加一条全图入边，返回指向该边的引用。
     #[inline]
     pub fn add_edge(&mut self) -> EdgeRef {
