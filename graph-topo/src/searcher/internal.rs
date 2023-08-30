@@ -56,16 +56,12 @@ impl Internal {
             edges.push(Default::default());
         }
         for (node_idx, node) in graph.nodes.iter().enumerate() {
-            let mut inputs = Vec::new();
-            let mut outputs = Vec::new();
-            let mut predecessors = HashSet::new();
-
             for _ in 0..node.local_edges_len {
                 local_edges.insert(edges.len());
                 edges.push(Default::default());
             }
             for _ in 0..node.outputs_len {
-                outputs.push(edges.len());
+                nodes[node_idx].outputs.push(edges.len());
                 edges.push(SeacherEdge {
                     source: node_idx,
                     targets: HashSet::new(),
@@ -75,23 +71,16 @@ impl Internal {
                 let edge_idx = graph.connections[pass_connections].0;
                 let edge = &mut edges[edge_idx];
 
-                inputs.push(edge_idx);
+                nodes[node_idx].inputs.push(edge_idx);
                 edge.targets.insert(node_idx);
 
                 if edge.source != NodeIdx::MAX {
-                    predecessors.insert(edge.source);
+                    nodes[node_idx].predecessors.insert(edge.source);
                     nodes[edge.source].successors.insert(node_idx);
                 }
 
                 pass_connections += 1;
             }
-
-            nodes.push(SeacherNode {
-                inputs,
-                outputs,
-                predecessors,
-                successors: HashSet::new(),
-            })
         }
         for ouput in &graph.connections[pass_connections..] {
             let edge_idx = ouput.0;

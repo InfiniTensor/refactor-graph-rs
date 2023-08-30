@@ -45,7 +45,7 @@ impl Searcher {
             .collect()
     }
 
-    pub fn local_edges(&self) -> Vec<Edge> {
+    pub fn local_edges(&self) -> HashSet<Edge> {
         let weak = Rc::downgrade(&self.0);
         let internal = self.0.borrow();
         internal
@@ -82,8 +82,15 @@ impl From<GraphTopo> for Searcher {
 }
 
 pub struct Nodes(Weak<RefCell<Internal>>);
-
+pub struct Edges(Weak<RefCell<Internal>>);
+#[derive(Clone)]
+pub struct Node(Weak<RefCell<Internal>>, usize);
+#[derive(Clone)]
+pub struct Edge(Weak<RefCell<Internal>>, usize);
+#[derive(Clone)]
 pub struct NodeIter(Weak<RefCell<Internal>>, usize);
+#[derive(Clone)]
+pub struct EdgeIter(Weak<RefCell<Internal>>, usize);
 
 impl Nodes {
     #[inline]
@@ -119,6 +126,40 @@ impl IntoIterator for Nodes {
     }
 }
 
+impl Edges {
+    #[inline]
+    pub fn get(&self, idx: usize) -> Edge {
+        let internal = self.0.upgrade().expect("Graph has been dropped");
+        let internal = internal.borrow();
+        assert!(idx < internal.edges.len());
+        Edge(self.0.clone(), idx)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        let internal = self.0.upgrade().expect("Graph has been dropped");
+        let internal = internal.borrow();
+        internal.edges.is_empty()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        let internal = self.0.upgrade().expect("Graph has been dropped");
+        let internal = internal.borrow();
+        internal.edges.len()
+    }
+}
+
+impl IntoIterator for Edges {
+    type Item = Edge;
+    type IntoIter = EdgeIter;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        EdgeIter(self.0, 0)
+    }
+}
+
 impl Iterator for NodeIter {
     type Item = Node;
 
@@ -136,7 +177,22 @@ impl Iterator for NodeIter {
     }
 }
 
-pub struct Node(Weak<RefCell<Internal>>, usize);
+impl Iterator for EdgeIter {
+    type Item = Edge;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.upgrade().and_then(|internal| {
+            let internal = internal.borrow();
+            if self.1 < internal.edges.len() {
+                let idx = self.1;
+                self.1 += 1;
+                Some(Edge(self.0.clone(), idx))
+            } else {
+                None
+            }
+        })
+    }
+}
 
 impl PartialEq for Node {
     #[inline]
@@ -202,8 +258,6 @@ impl Node {
     }
 }
 
-pub struct Edges(Weak<RefCell<Internal>>);
-
 impl PartialEq for Edge {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -220,61 +274,6 @@ impl Hash for Edge {
         self.1.hash(state);
     }
 }
-
-pub struct EdgeIter(Weak<RefCell<Internal>>, usize);
-
-impl Edges {
-    #[inline]
-    pub fn get(&self, idx: usize) -> Edge {
-        let internal = self.0.upgrade().expect("Graph has been dropped");
-        let internal = internal.borrow();
-        assert!(idx < internal.edges.len());
-        Edge(self.0.clone(), idx)
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        let internal = self.0.upgrade().expect("Graph has been dropped");
-        let internal = internal.borrow();
-        internal.edges.is_empty()
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        let internal = self.0.upgrade().expect("Graph has been dropped");
-        let internal = internal.borrow();
-        internal.edges.len()
-    }
-}
-
-impl IntoIterator for Edges {
-    type Item = Edge;
-    type IntoIter = EdgeIter;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        EdgeIter(self.0, 0)
-    }
-}
-
-impl Iterator for EdgeIter {
-    type Item = Edge;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.upgrade().and_then(|internal| {
-            let internal = internal.borrow();
-            if self.1 < internal.edges.len() {
-                let idx = self.1;
-                self.1 += 1;
-                Some(Edge(self.0.clone(), idx))
-            } else {
-                None
-            }
-        })
-    }
-}
-
-pub struct Edge(Weak<RefCell<Internal>>, usize);
 
 impl Edge {
     #[inline]
@@ -303,142 +302,3 @@ impl Edge {
             .collect()
     }
 }
-
-// #[test]
-// fn test() {
-//     let mut graph = GraphTopo::default();
-//     let e0 = graph.add_edge(0); // |0
-//     let e1 = graph.add_edge(1); // |1
-//     let n0 = graph.add_node([e0, e1], 2); // |0:t0 + |1:t1 -> *0 -> |2 + |3
-//     let e3 = n0.get_output(1); // |3
-//     let e4 = graph.add_edge(2); // |4
-//     let n1 = graph.add_node([e3, e4], 1); // |3:t2 + |4:t3 -> *1 -> |5
-//     let e5 = n1.get_output(0); // |5
-//     let e2 = n0.get_output(0); // |2
-//     let n2 = graph.add_node([e5, e2], 1); // |5:t4 + |2:t5 -> *2 -> |6
-//     let e6 = n2.get_output(0); // |6
-//     graph.mark_output(e6, 0); // |6 -> <0
-//     graph.mark_output(e5, 1); // |5     -> <1
-
-//     println!("{}", graph);
-
-//     let searcher = Searcher::from(graph);
-//     {
-//         let global_inputs = searcher.global_inputs();
-//         assert_eq!(global_inputs.len(), 3);
-//         assert_eq!(global_inputs[0].1, 0);
-//         assert_eq!(global_inputs[1].1, 1);
-//         assert_eq!(global_inputs[2].1, 4);
-
-//         let global_outputs = searcher.global_outputs();
-//         assert_eq!(global_outputs.len(), 2);
-//         assert_eq!(global_outputs[0].1, 6);
-//         assert_eq!(global_outputs[1].1, 4);
-//     }
-//     let nodes = searcher.nodes();
-//     {
-//         assert_eq!(nodes.len(), 3);
-//         let _0 = nodes.get(0);
-//         let _1 = nodes.get(1);
-//         let _2 = nodes.get(2);
-
-//         assert_eq!(_0.inputs().len(), 2);
-//         assert_eq!(_0.inputs()[0].1, 0);
-//         assert_eq!(_0.inputs()[1].1, 1);
-//         assert_eq!(_0.outputs().len(), 2);
-//         assert_eq!(_0.outputs()[0].1, 2);
-//         assert_eq!(_0.outputs()[1].1, 3);
-//         assert_eq!(
-//             _0.predecessors()
-//                 .iter()
-//                 .map(|x| x.1)
-//                 .collect::<HashSet<_>>(),
-//             HashSet::from([])
-//         );
-//         assert_eq!(
-//             _0.successors().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([1, 2])
-//         );
-
-//         assert_eq!(_1.inputs().len(), 2);
-//         assert_eq!(_1.inputs()[0].1, 3);
-//         assert_eq!(_1.inputs()[1].1, 4);
-//         assert_eq!(_1.outputs().len(), 1);
-//         assert_eq!(_1.outputs()[0].1, 5);
-//         assert_eq!(
-//             _1.predecessors()
-//                 .iter()
-//                 .map(|x| x.1)
-//                 .collect::<HashSet<_>>(),
-//             HashSet::from([0])
-//         );
-//         assert_eq!(
-//             _1.successors().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([2])
-//         );
-
-//         assert_eq!(_2.inputs().len(), 2);
-//         assert_eq!(_2.inputs()[0].1, 5);
-//         assert_eq!(_2.inputs()[1].1, 2);
-//         assert_eq!(_2.outputs().len(), 1);
-//         assert_eq!(_2.outputs()[0].1, 6);
-//         assert_eq!(
-//             _2.predecessors()
-//                 .iter()
-//                 .map(|x| x.1)
-//                 .collect::<HashSet<_>>(),
-//             HashSet::from([0, 1])
-//         );
-//         assert_eq!(
-//             _2.successors().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([])
-//         );
-//     }
-//     let edges = searcher.edges();
-//     {
-//         assert_eq!(edges.len(), 7);
-//         let _0 = edges.get(0);
-//         let _1 = edges.get(1);
-//         let _2 = edges.get(2);
-//         let _3 = edges.get(3);
-//         let _4 = edges.get(4);
-//         let _5 = edges.get(5);
-//         let _6 = edges.get(6);
-
-//         assert_eq!(_0.source().map(|x| x.1), None);
-//         assert_eq!(
-//             _0.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([0])
-//         );
-//         assert_eq!(_1.source().map(|x| x.1), None);
-//         assert_eq!(
-//             _1.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([0])
-//         );
-//         assert_eq!(_2.source().map(|x| x.1), Some(0));
-//         assert_eq!(
-//             _2.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([2])
-//         );
-//         assert_eq!(_3.source().map(|x| x.1), Some(0));
-//         assert_eq!(
-//             _3.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([1])
-//         );
-//         assert_eq!(_4.source().map(|x| x.1), None);
-//         assert_eq!(
-//             _4.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([1])
-//         );
-//         assert_eq!(_5.source().map(|x| x.1), Some(1));
-//         assert_eq!(
-//             _5.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([2])
-//         );
-//         assert_eq!(_6.source().map(|x| x.1), Some(2));
-//         assert_eq!(
-//             _6.targets().iter().map(|x| x.1).collect::<HashSet<_>>(),
-//             HashSet::from([])
-//         );
-//     }
-// }
