@@ -1,7 +1,9 @@
 #![deny(warnings)]
 
+mod builder;
 mod container;
 mod searcher;
 
-pub use container::{EdgeRef, GraphTopo, NodeRef};
-pub use searcher::{Node, Nodes, Searcher as GraphTopoSearcher};
+pub use builder::{Builder as GraphTopoBuilder, Graph};
+pub use container::GraphTopo;
+pub use searcher::{Edge, Node, Searcher};
