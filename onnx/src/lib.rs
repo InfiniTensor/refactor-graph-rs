@@ -29,3 +29,8 @@ pub struct Tensor {
 
 #[derive(Clone, Default, Debug)]
 pub struct Shape(smallvec::SmallVec<[i64; 4]>);
+
+#[allow(non_snake_case)]
+pub mod onnx {
+    include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
+}
