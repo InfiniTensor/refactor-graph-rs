@@ -8,6 +8,7 @@ use std::{
 };
 
 /// 图拓扑生成器。
+#[derive(Default, Debug)]
 pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     /// 拓扑结构记录：节点-入边-出边。
     pub topology: HashMap<NodeKey, (Vec<EdgeKey>, Vec<EdgeKey>)>,
@@ -25,11 +26,25 @@ pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     pub edges: HashMap<EdgeKey, Edge>,
 }
 
+#[derive(Clone, Debug)]
 /// 用于保存构建结果的数据结构，对节点和边重新排序。
 pub struct Graph<Node, Edge> {
     pub topology: GraphTopo,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+}
+
+impl<KN, N, KE, E> Builder<KN, N, KE, E> {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            topology: HashMap::new(),
+            global_inputs: Vec::new(),
+            global_outputs: Vec::new(),
+            nodes: HashMap::new(),
+            edges: HashMap::new(),
+        }
+    }
 }
 
 impl<KN, N, KE, E> Builder<KN, N, KE, E>

@@ -1,21 +1,26 @@
 // #![deny(warnings)]
 
-use std::collections::HashMap;
+mod onnx;
 
+use std::{collections::HashMap, ptr::null_mut};
+
+pub use onnx::{load_model, LoadError};
+
+#[derive(Clone, Debug)]
 pub struct Graph(graph_topo::Graph<Operator, Tensor>);
 
 #[derive(Clone, Debug)]
 pub struct Operator {
-    op_type: &'static str,
-    attributes: HashMap<&'static str, Attribute>,
+    op_type: String,
+    attributes: HashMap<String, Attribute>,
 }
 
 #[derive(Clone, Debug)]
 pub enum Attribute {
     Int(i64),
     Ints(Vec<i64>),
-    Float(f64),
-    Floats(Vec<f64>),
+    Float(f32),
+    Floats(Vec<f32>),
     String(String),
     Strings(Vec<String>),
 }
@@ -27,10 +32,16 @@ pub struct Tensor {
     data: *mut u8,
 }
 
+impl Default for Tensor {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            dt: common::DataType::UNDEFINED,
+            shape: Default::default(),
+            data: null_mut(),
+        }
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct Shape(smallvec::SmallVec<[i64; 4]>);
-
-#[allow(non_snake_case)]
-pub mod onnx {
-    include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
-}

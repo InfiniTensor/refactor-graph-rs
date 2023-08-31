@@ -14,6 +14,10 @@ on:
     paths-ignore:
       - '**.md'
       - 'LICENSE'
+  pull_request:
+    paths:
+      - '**.md'
+      - 'LICENSE'
 
 jobs:
   rust-clippy-analyze:
