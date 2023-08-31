@@ -1,5 +1,5 @@
-﻿#[derive(Clone, Copy, Debug)]
-pub enum OpType {
+﻿#[derive(Clone, Debug)]
+pub enum Operator {
     Unknown,
     Abs,
     Acos,
@@ -196,7 +196,7 @@ pub enum OpType {
     Xor,
 }
 
-impl Default for OpType {
+impl Default for Operator {
     fn default() -> Self {
         Self::Unknown
     }
