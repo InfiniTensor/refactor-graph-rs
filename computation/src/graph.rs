@@ -1,8 +1,8 @@
 ﻿use crate::{Edge, Node};
-use graph_topo::GraphTopoSearcher;
+use graph_topo::Searcher;
 
 pub struct Graph {
-    pub topology: GraphTopoSearcher,
+    pub topology: Searcher,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
 }

@@ -4,7 +4,7 @@ mod builder;
 mod container;
 mod searcher;
 
-pub use builder::{Builder as GraphTopoBuilder, Graph};
+pub use builder::{Builder, Graph};
 pub use container::GraphTopo;
 pub use searcher::{Edge, Node, Searcher};
 
@@ -12,7 +12,7 @@ pub use searcher::{Edge, Node, Searcher};
 fn test() {
     use std::collections::{HashMap, HashSet};
 
-    let graph = GraphTopoBuilder {
+    let graph = Builder {
         topology: HashMap::from([
             ("A", (vec!["a", "b"], vec!["c", "d"])),
             ("B", (vec!["d", "e"], vec!["f"])),
