@@ -1,6 +1,6 @@
 ﻿use crate::{Attribute, DimExpr, Graph, Operator, Shape, Tensor};
 use common::DataType;
-use graph_topo::Builder as GraphBuilder;
+use graph_topo::{Builder as GraphBuilder, Searcher};
 use internal::{
     attribute_proto::AttributeType, tensor_proto, tensor_proto::DataLocation, tensor_shape_proto,
     type_proto, AttributeProto, ModelProto, TensorProto, ValueInfoProto,
@@ -18,16 +18,29 @@ mod internal {
     include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
 }
 
+/// Loads model from a file.
+pub fn load_model<P: AsRef<Path>>(path: P) -> Result<ModelProto, LoadError> {
+    ModelProto::decode(std::fs::read(path).map_err(LoadError::Io)?.as_slice())
+        .map_err(LoadError::Prost)
+}
+
+/// Saves model to a file.
+pub fn save_model<P: AsRef<Path>>(path: P, model: &ModelProto) -> Result<(), SaveError> {
+    let mut body = Vec::new();
+    model.encode(&mut body).map_err(SaveError::Prost)?;
+    std::fs::write(path, body).map_err(SaveError::Io)
+}
+
 #[derive(Debug)]
 pub enum LoadError {
     Io(std::io::Error),
     Prost(prost::DecodeError),
 }
 
-/// Opens model from a file.
-pub fn load_model<P: AsRef<Path>>(path: P) -> Result<ModelProto, LoadError> {
-    ModelProto::decode(std::fs::read(path).map_err(LoadError::Io)?.as_slice())
-        .map_err(LoadError::Prost)
+#[derive(Debug)]
+pub enum SaveError {
+    Io(std::io::Error),
+    Prost(prost::EncodeError),
 }
 
 impl From<ModelProto> for Graph {
@@ -60,17 +73,17 @@ impl From<ModelProto> for Graph {
             );
         }
         for edge in graph.input {
-            let (name, tensor) = build_tensor(edge);
+            let (name, tensor) = build_tensor_without_data(edge);
             builder.global_inputs.push(name.clone());
             builder.edges.insert(name, tensor);
         }
         for edge in graph.output {
-            let (name, tensor) = build_tensor(edge);
+            let (name, tensor) = build_tensor_without_data(edge);
             builder.global_outputs.push(name.clone());
             builder.edges.insert(name, tensor);
         }
         for edge in graph.initializer {
-            let (name, tensor) = build_data(edge);
+            let (name, tensor) = build_tensor_with_data(edge);
             match builder.edges.entry(name) {
                 Entry::Occupied(mut entry) => {
                     assert!(entry.get().info_equal(&tensor));
@@ -106,7 +119,7 @@ fn take_attribute(attr: AttributeProto) -> (String, Attribute) {
     (attr.name, value)
 }
 
-fn build_tensor(value: ValueInfoProto) -> (String, Tensor) {
+fn build_tensor_without_data(value: ValueInfoProto) -> (String, Tensor) {
     use tensor_shape_proto::dimension::Value::{DimParam, DimValue};
     let type_proto::Value::TensorType(t) = value.r#type.unwrap().value.unwrap() else {
         todo!()
@@ -131,16 +144,16 @@ fn build_tensor(value: ValueInfoProto) -> (String, Tensor) {
     )
 }
 
-fn build_data(tensor: TensorProto) -> (String, Tensor) {
+fn build_tensor_with_data(tensor: TensorProto) -> (String, Tensor) {
     assert_eq!(tensor.data_location(), DataLocation::Default);
     let dt = match_dt(tensor.data_type);
     let size = tensor.dims.iter().product::<i64>() as usize;
 
     macro_rules! copy_data {
-        ($data:expr) => {{
+        ($data:ident) => {{
             let src = if tensor.raw_data.is_empty() {
-                assert_eq!($data.len(), size);
-                $data.as_ptr() as *const u8
+                assert_eq!(tensor.$data.len(), size);
+                tensor.$data.as_ptr() as *const u8
             } else {
                 assert_eq!(tensor.raw_data.len(), size * dt.layout().size());
                 tensor.raw_data.as_ptr()
@@ -158,11 +171,11 @@ fn build_data(tensor: TensorProto) -> (String, Tensor) {
             dt,
             Shape(tensor.dims.into_iter().map(DimExpr::Value).collect()),
             match dt {
-                DataType::F32 => copy_data!(tensor.float_data),
-                DataType::I32 => copy_data!(tensor.int32_data),
-                DataType::I64 => copy_data!(tensor.int64_data),
-                DataType::F64 => copy_data!(tensor.double_data),
-                DataType::U64 => copy_data!(tensor.uint64_data),
+                DataType::F32 => copy_data!(float_data),
+                DataType::I32 => copy_data!(int32_data),
+                DataType::I64 => copy_data!(int64_data),
+                DataType::F64 => copy_data!(double_data),
+                DataType::U64 => copy_data!(uint64_data),
                 dt => todo!("data type {dt:?} not supported yet"),
             },
         ),
@@ -204,4 +217,11 @@ fn test() -> std::io::Result<()> {
         .count();
     println!("{n} onnx model(s) loaded");
     Ok(())
+}
+
+impl Graph {
+    pub fn save(&self) {
+        let _searcher = Searcher::from(&self.0.topology);
+        todo!()
+    }
 }

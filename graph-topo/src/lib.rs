@@ -31,7 +31,7 @@ fn test() {
         edges,
     } = graph;
 
-    let searcher = Searcher::from(topology);
+    let searcher = Searcher::from(&topology);
     {
         let inputs = searcher.global_inputs();
         assert_eq!(inputs.len(), 1);

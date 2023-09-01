@@ -6,8 +6,6 @@ pub(super) type EdgeIdx = usize;
 
 #[derive(Clone, Debug)]
 pub(super) struct Internal {
-    #[allow(unused)]
-    pub(super) graph: GraphTopo,
     pub(super) global_inputs: Vec<EdgeIdx>,
     pub(super) global_outputs: Vec<EdgeIdx>,
     pub(super) local_edges: HashSet<EdgeIdx>,
@@ -40,7 +38,7 @@ impl Default for SeacherEdge {
 }
 
 impl Internal {
-    pub(super) fn new(graph: GraphTopo) -> Self {
+    pub(super) fn new(graph: &GraphTopo) -> Self {
         let nodes_len = graph.nodes.len();
         let global_inputs_len = graph.global_inputs_len;
 
@@ -95,7 +93,6 @@ impl Internal {
         }
 
         Self {
-            graph,
             global_inputs,
             global_outputs,
             local_edges,

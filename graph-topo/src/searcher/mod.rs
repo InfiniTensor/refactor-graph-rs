@@ -74,9 +74,9 @@ impl Clone for Searcher {
     }
 }
 
-impl From<GraphTopo> for Searcher {
+impl From<&GraphTopo> for Searcher {
     #[inline]
-    fn from(value: GraphTopo) -> Self {
+    fn from(value: &GraphTopo) -> Self {
         Self(Rc::new(RefCell::new(Internal::new(value))))
     }
 }

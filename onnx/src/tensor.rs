@@ -57,7 +57,7 @@ impl Drop for Tensor {
                 .shape
                 .0
                 .iter()
-                .map(|x| match x {
+                .map(|d| match d {
                     DimExpr::Value(val) => val,
                     DimExpr::Variable(_) => unreachable!(),
                 })
