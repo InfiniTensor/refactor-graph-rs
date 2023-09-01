@@ -7,5 +7,6 @@ authors = ["YdrMaster <ydrml@hotmail.com>"]
 
 [dependencies]
 smallvec = "1.11"
+itertools = "0.11.0"
 common = { path = "../common" }
 graph-topo = { path = "../graph-topo" }
