@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 pub(super) type NodeIdx = usize;
 pub(super) type EdgeIdx = usize;
+pub(super) const EXTERNAL: NodeIdx = NodeIdx::MAX;
 
 #[derive(Clone, Debug)]
 pub(super) struct Internal {
@@ -31,7 +32,7 @@ impl Default for SeacherEdge {
     #[inline]
     fn default() -> Self {
         Self {
-            source: NodeIdx::MAX,
+            source: EXTERNAL,
             targets: HashSet::new(),
         }
     }
@@ -72,7 +73,7 @@ impl Internal {
                 nodes[node_idx].inputs.push(edge_idx);
                 edge.targets.insert(node_idx);
 
-                if edge.source != NodeIdx::MAX {
+                if edge.source != EXTERNAL {
                     nodes[node_idx].predecessors.insert(edge.source);
                     nodes[edge.source].successors.insert(node_idx);
                 }
@@ -85,10 +86,10 @@ impl Internal {
             let edge = &mut edges[edge_idx];
 
             global_outputs.push(edge_idx);
-            edge.targets.insert(NodeIdx::MAX);
+            edge.targets.insert(EXTERNAL);
 
-            if edge.source != NodeIdx::MAX {
-                nodes[edge.source].successors.insert(NodeIdx::MAX);
+            if edge.source != EXTERNAL {
+                nodes[edge.source].successors.insert(EXTERNAL);
             }
         }
 
