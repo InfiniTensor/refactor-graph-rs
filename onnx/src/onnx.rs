@@ -1,15 +1,22 @@
-﻿#![allow(non_snake_case)]
-
-use crate::{Attribute, Graph, Operator, Shape, Tensor};
-use attribute_proto::AttributeType;
+﻿use crate::{Attribute, DimExpr, Graph, Operator, Shape, Tensor};
 use common::DataType;
 use graph_topo::Builder as GraphBuilder;
+use internal::{
+    attribute_proto::AttributeType, tensor_proto, tensor_proto::DataLocation, tensor_shape_proto,
+    type_proto, AttributeProto, ModelProto, TensorProto, ValueInfoProto,
+};
 use prost::Message;
-use std::collections::{hash_map::Entry, HashMap};
-use std::path::Path;
-use std::str::from_utf8;
+use std::{
+    alloc::alloc,
+    collections::{hash_map::Entry, HashMap},
+    path::Path,
+    str::from_utf8,
+};
 
-include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
+#[allow(non_snake_case, clippy::enum_variant_names)]
+mod internal {
+    include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
+}
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -19,12 +26,8 @@ pub enum LoadError {
 
 /// Opens model from a file.
 pub fn load_model<P: AsRef<Path>>(path: P) -> Result<ModelProto, LoadError> {
-    ModelProto::decode(
-        std::fs::read(path)
-            .map_err(|e| LoadError::Io(e))?
-            .as_slice(),
-    )
-    .map_err(|e| LoadError::Prost(e))
+    ModelProto::decode(std::fs::read(path).map_err(LoadError::Io)?.as_slice())
+        .map_err(LoadError::Prost)
 }
 
 impl From<ModelProto> for Graph {
@@ -67,7 +70,17 @@ impl From<ModelProto> for Graph {
             builder.edges.insert(name, tensor);
         }
         for edge in graph.initializer {
-            todo!("initializer: {edge:?}");
+            let (name, tensor) = build_data(edge);
+            match builder.edges.entry(name) {
+                Entry::Occupied(mut entry) => {
+                    assert!(entry.get().info_equal(&tensor));
+                    assert!(!entry.get().has_data());
+                    *entry.get_mut() = tensor;
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(tensor);
+                }
+            }
         }
 
         Self(builder.build())
@@ -94,14 +107,71 @@ fn take_attribute(attr: AttributeProto) -> (String, Attribute) {
 }
 
 fn build_tensor(value: ValueInfoProto) -> (String, Tensor) {
-    use tensor_proto::DataType::*;
-    use tensor_shape_proto::dimension::Value::DimValue;
-
-    let mut tensor = Tensor::default();
+    use tensor_shape_proto::dimension::Value::{DimParam, DimValue};
     let type_proto::Value::TensorType(t) = value.r#type.unwrap().value.unwrap() else {
         todo!()
     };
-    tensor.dt = match tensor_proto::DataType::from_i32(t.elem_type) {
+    (
+        value.name,
+        Tensor::without_data(
+            match_dt(t.elem_type),
+            Shape(
+                t.shape
+                    .unwrap()
+                    .dim
+                    .into_iter()
+                    .map(|d| match d.value {
+                        Some(DimValue(val)) => DimExpr::Value(val),
+                        Some(DimParam(p)) => DimExpr::Variable(p),
+                        None => unreachable!(),
+                    })
+                    .collect(),
+            ),
+        ),
+    )
+}
+
+fn build_data(tensor: TensorProto) -> (String, Tensor) {
+    assert_eq!(tensor.data_location(), DataLocation::Default);
+    let dt = match_dt(tensor.data_type);
+    let size = tensor.dims.iter().product::<i64>() as usize;
+
+    macro_rules! copy_data {
+        ($data:expr) => {{
+            let src = if tensor.raw_data.is_empty() {
+                assert_eq!($data.len(), size);
+                $data.as_ptr() as *const u8
+            } else {
+                assert_eq!(tensor.raw_data.len(), size * dt.layout().size());
+                tensor.raw_data.as_ptr()
+            };
+            let layout = dt.array_layout(size);
+            let ptr = unsafe { alloc(layout) };
+            unsafe { ptr.copy_from_nonoverlapping(src, layout.size()) };
+            ptr
+        }};
+    }
+
+    (
+        tensor.name,
+        Tensor::with_data(
+            dt,
+            Shape(tensor.dims.into_iter().map(DimExpr::Value).collect()),
+            match dt {
+                DataType::F32 => copy_data!(tensor.float_data),
+                DataType::I32 => copy_data!(tensor.int32_data),
+                DataType::I64 => copy_data!(tensor.int64_data),
+                DataType::F64 => copy_data!(tensor.double_data),
+                DataType::U64 => copy_data!(tensor.uint64_data),
+                dt => todo!("data type {dt:?} not supported yet"),
+            },
+        ),
+    )
+}
+
+fn match_dt(dt: i32) -> DataType {
+    use tensor_proto::DataType::*;
+    match tensor_proto::DataType::from_i32(dt) {
         Some(Undefined) => DataType::UNDEFINED,
         Some(Float) => DataType::F32,
         Some(Uint8) => DataType::U8,
@@ -120,25 +190,18 @@ fn build_tensor(value: ValueInfoProto) -> (String, Tensor) {
         Some(Complex128) => DataType::COMPLEX128,
         Some(Bfloat16) => DataType::BF16,
         _ => todo!(),
-    };
-    tensor.shape = Shape(
-        t.shape
-            .unwrap()
-            .dim
-            .into_iter()
-            .map(|d| match d.value {
-                Some(DimValue(d)) => d,
-                _ => todo!(),
-            })
-            .collect(),
-    );
-    (value.name, tensor)
+    }
 }
 
-// #[test]
-// fn test() {
-//     let model =
-//         load_model("*.onnx")
-//             .unwrap();
-//     println!("{:#?}", Graph::from(model));
-// }
+#[test]
+fn test() -> std::io::Result<()> {
+    use std::{env::current_dir, ffi::OsStr, fs::read_dir};
+    let n = current_dir()
+        .and_then(read_dir)?
+        .filter_map(|res| res.ok())
+        .filter(|file| file.path().extension() == Some(OsStr::new("onnx")))
+        .map(|x| Graph::from(load_model(x.path()).unwrap()))
+        .count();
+    println!("{n} onnx model(s) loaded");
+    Ok(())
+}

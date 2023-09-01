@@ -1,4 +1,6 @@
-﻿#[repr(u8)]
+﻿use std::alloc::Layout;
+
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum DataType {
     UNDEFINED = 0,
@@ -21,26 +23,47 @@ pub enum DataType {
 }
 
 impl DataType {
-    pub const fn size(&self) -> usize {
-        use core::mem::size_of;
+    pub const fn layout(&self) -> Layout {
         match self {
             DataType::UNDEFINED => unreachable!(),
-            DataType::F32 => size_of::<f32>(),
-            DataType::U8 => size_of::<u8>(),
-            DataType::I8 => size_of::<i8>(),
-            DataType::U16 => size_of::<u16>(),
-            DataType::I16 => size_of::<i16>(),
-            DataType::I32 => size_of::<i32>(),
-            DataType::I64 => size_of::<i64>(),
+            DataType::F32 => Layout::new::<f32>(),
+            DataType::U8 => Layout::new::<u8>(),
+            DataType::I8 => Layout::new::<i8>(),
+            DataType::U16 => Layout::new::<u16>(),
+            DataType::I16 => Layout::new::<i16>(),
+            DataType::I32 => Layout::new::<i32>(),
+            DataType::I64 => Layout::new::<i64>(),
             DataType::STRING => unreachable!(),
-            DataType::BOOL => size_of::<bool>(),
-            DataType::FP16 => 2,
-            DataType::F64 => size_of::<f64>(),
-            DataType::U32 => size_of::<u32>(),
-            DataType::U64 => size_of::<u64>(),
+            DataType::BOOL => Layout::new::<bool>(),
+            DataType::FP16 => todo!(),
+            DataType::F64 => Layout::new::<f64>(),
+            DataType::U32 => Layout::new::<u32>(),
+            DataType::U64 => Layout::new::<u64>(),
             DataType::COMPLEX64 => todo!(),
             DataType::COMPLEX128 => todo!(),
-            DataType::BF16 => 2,
+            DataType::BF16 => todo!(),
+        }
+    }
+
+    pub fn array_layout(&self, len: usize) -> Layout {
+        match self {
+            DataType::UNDEFINED => unreachable!(),
+            DataType::F32 => Layout::array::<f32>(len).unwrap(),
+            DataType::U8 => Layout::array::<u8>(len).unwrap(),
+            DataType::I8 => Layout::array::<i8>(len).unwrap(),
+            DataType::U16 => Layout::array::<u16>(len).unwrap(),
+            DataType::I16 => Layout::array::<i16>(len).unwrap(),
+            DataType::I32 => Layout::array::<i32>(len).unwrap(),
+            DataType::I64 => Layout::array::<i64>(len).unwrap(),
+            DataType::STRING => unreachable!(),
+            DataType::BOOL => Layout::array::<bool>(len).unwrap(),
+            DataType::FP16 => todo!(),
+            DataType::F64 => Layout::array::<f64>(len).unwrap(),
+            DataType::U32 => Layout::array::<u32>(len).unwrap(),
+            DataType::U64 => Layout::array::<u64>(len).unwrap(),
+            DataType::COMPLEX64 => todo!(),
+            DataType::COMPLEX128 => todo!(),
+            DataType::BF16 => todo!(),
         }
     }
 
