@@ -1,12 +1,11 @@
 // #![deny(warnings)]
 
 mod onnx;
-mod tensor;
 
+use computation::Tensor;
 use std::collections::HashMap;
 
 pub use crate::onnx::{load_model, save_model, LoadError, SaveError};
-pub use tensor::{DimExpr, Shape, Tensor};
 
 #[derive(Debug)]
 pub struct Graph(graph_topo::Graph<Operator, Tensor>);

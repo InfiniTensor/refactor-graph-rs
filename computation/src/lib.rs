@@ -6,8 +6,10 @@
 
 mod edge;
 mod operators;
+mod tensor;
 
 pub use operators::OpType;
+pub use tensor::{DimExpr, Shape, Tensor};
 
 extern crate common;
 extern crate itertools;

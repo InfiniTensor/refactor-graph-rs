@@ -2,6 +2,7 @@
 use smallvec::SmallVec;
 use std::ptr::NonNull;
 
+/// Tensor.
 #[derive(PartialEq, Eq, Debug)]
 pub struct Tensor {
     dt: DataType,
@@ -10,6 +11,7 @@ pub struct Tensor {
 }
 
 impl Tensor {
+    /// Creates a new tensor with data allocated.
     #[inline]
     pub fn with_data(dt: DataType, shape: Shape, data: *mut u8) -> Self {
         Self {
@@ -19,6 +21,7 @@ impl Tensor {
         }
     }
 
+    /// Creates a new tensor without data allocated.
     #[inline]
     pub fn without_data(dt: DataType, shape: Shape) -> Self {
         Self {
@@ -28,11 +31,13 @@ impl Tensor {
         }
     }
 
+    /// Checks if two tensors have the same data type and shape.
     #[inline]
     pub fn info_equal(&self, rhs: &Self) -> bool {
         self.dt == rhs.dt && self.shape == rhs.shape
     }
 
+    /// Checks if the tensor has data allocated.
     #[inline]
     pub fn has_data(&self) -> bool {
         self.data.is_some()
@@ -67,11 +72,15 @@ impl Drop for Tensor {
     }
 }
 
+/// Shape.
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct Shape(pub smallvec::SmallVec<[DimExpr; 4]>);
 
+/// Dimension of shapes maybe a value or a variable.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum DimExpr {
+    /// Shape value.
     Value(i64),
+    /// Shape variable.
     Variable(String),
 }

@@ -1,5 +1,6 @@
-﻿use crate::{Attribute, DimExpr, Graph, Operator, Shape, Tensor};
+﻿use crate::{Attribute, Graph, Operator, Tensor};
 use common::DataType;
+use computation::{DimExpr, Shape};
 use graph_topo::{Builder as GraphBuilder, Searcher};
 use internal::{
     attribute_proto::AttributeType, tensor_proto, tensor_proto::DataLocation, tensor_shape_proto,
