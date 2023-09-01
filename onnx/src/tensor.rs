@@ -1,25 +1,30 @@
 ﻿use common::DataType;
-use std::ptr::null_mut;
+use smallvec::SmallVec;
+use std::ptr::NonNull;
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Tensor {
     dt: DataType,
     shape: Shape,
-    data: *mut u8,
+    data: Option<NonNull<u8>>,
 }
 
 impl Tensor {
     #[inline]
-    pub const fn with_data(dt: DataType, shape: Shape, data: *mut u8) -> Self {
-        Self { dt, shape, data }
-    }
-
-    #[inline]
-    pub const fn without_data(dt: DataType, shape: Shape) -> Self {
+    pub fn with_data(dt: DataType, shape: Shape, data: *mut u8) -> Self {
         Self {
             dt,
             shape,
-            data: null_mut(),
+            data: NonNull::new(data),
+        }
+    }
+
+    #[inline]
+    pub fn without_data(dt: DataType, shape: Shape) -> Self {
+        Self {
+            dt,
+            shape,
+            data: None,
         }
     }
 
@@ -30,7 +35,7 @@ impl Tensor {
 
     #[inline]
     pub fn has_data(&self) -> bool {
-        !self.data.is_null()
+        self.data.is_some()
     }
 }
 
@@ -39,38 +44,34 @@ impl Default for Tensor {
     fn default() -> Self {
         Self {
             dt: DataType::UNDEFINED,
-            shape: Default::default(),
-            data: null_mut(),
+            shape: Shape(SmallVec::new()),
+            data: None,
         }
     }
 }
 
 impl Drop for Tensor {
     fn drop(&mut self) {
-        if self.data.is_null() {
-            return;
+        if let Some(ptr) = self.data.take() {
+            let size = self
+                .shape
+                .0
+                .iter()
+                .map(|x| match x {
+                    DimExpr::Value(val) => val,
+                    DimExpr::Variable(_) => unreachable!(),
+                })
+                .product::<i64>();
+            unsafe { std::alloc::dealloc(ptr.as_ptr(), self.dt.array_layout(size as _)) };
         }
-        let mut size = 1;
-        for d in &self.shape.0 {
-            match d {
-                DimExpr::Value(val) => size *= val,
-                DimExpr::Variable(_) => return,
-            }
-        }
-        unsafe {
-            std::alloc::dealloc(
-                std::mem::replace(&mut self.data, null_mut()),
-                self.dt.array_layout(size as _),
-            )
-        };
     }
 }
+
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct Shape(pub smallvec::SmallVec<[DimExpr; 4]>);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum DimExpr {
     Value(i64),
     Variable(String),
 }
-
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
-pub struct Shape(pub smallvec::SmallVec<[DimExpr; 4]>);
