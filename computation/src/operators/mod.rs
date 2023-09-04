@@ -8,6 +8,7 @@ use eq::OperatorEq;
 use infer::OutputInference;
 
 pub use gemm::Gemm;
+pub use infer::InferError;
 pub use matmul::MatMul;
 pub use op_type::OpType;
 

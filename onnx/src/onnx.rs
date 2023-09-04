@@ -215,7 +215,6 @@ fn test() -> std::io::Result<()> {
         .filter_map(|res| res.ok())
         .filter(|file| file.path().extension() == Some(OsStr::new("onnx")))
         .map(|x| Graph::from(load_model(x.path()).unwrap()))
-        .inspect(|g| println!("{}", g.0.topology))
         .count();
     println!("{n} onnx model(s) loaded");
     Ok(())

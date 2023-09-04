@@ -11,6 +11,16 @@ pub struct Tensor {
 }
 
 impl Tensor {
+    /// Creates a new tensor to represent unknown tensor.
+    #[inline]
+    pub fn unknown() -> Self {
+        Self {
+            dt: DataType::UNDEFINED,
+            shape: Shape(SmallVec::new()),
+            data: None,
+        }
+    }
+
     /// Creates a new tensor with data allocated.
     #[inline]
     pub fn with_data(dt: DataType, shape: Shape, data: *mut u8) -> Self {
@@ -31,6 +41,12 @@ impl Tensor {
         }
     }
 
+    /// Checks if the tensor is unknown.
+    #[inline]
+    pub fn is_unknown(&self) -> bool {
+        matches!(self.dt, DataType::UNDEFINED) && self.shape.0.is_empty() && self.data.is_none()
+    }
+
     /// Checks if two tensors have the same data type and shape.
     #[inline]
     pub fn info_equal(&self, rhs: &Self) -> bool {
@@ -39,16 +55,18 @@ impl Tensor {
 
     /// Checks if the tensor has data allocated.
     #[inline]
-    pub fn has_data(&self) -> bool {
+    pub const fn has_data(&self) -> bool {
         self.data.is_some()
     }
 
     /// Gets the data type of the tensor.
-    pub fn data_type(&self) -> DataType {
+    #[inline]
+    pub const fn data_type(&self) -> DataType {
         self.dt
     }
 
     /// Gets the shape of the tensor.
+    #[inline]
     pub const fn shape(&self) -> &Shape {
         &self.shape
     }
@@ -57,11 +75,7 @@ impl Tensor {
 impl Default for Tensor {
     #[inline]
     fn default() -> Self {
-        Self {
-            dt: DataType::UNDEFINED,
-            shape: Shape(SmallVec::new()),
-            data: None,
-        }
+        Self::unknown()
     }
 }
 
