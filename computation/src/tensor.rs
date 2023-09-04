@@ -42,6 +42,16 @@ impl Tensor {
     pub fn has_data(&self) -> bool {
         self.data.is_some()
     }
+
+    /// Gets the data type of the tensor.
+    pub fn data_type(&self) -> DataType {
+        self.dt
+    }
+
+    /// Gets the shape of the tensor.
+    pub const fn shape(&self) -> &Shape {
+        &self.shape
+    }
 }
 
 impl Default for Tensor {
@@ -83,4 +93,18 @@ pub enum DimExpr {
     Value(i64),
     /// Shape variable.
     Variable(String),
+}
+
+impl Shape {
+    /// Calculates the size of the shape.
+    pub fn size(&self) -> usize {
+        let mut ans = 1;
+        for dim in self.0.iter() {
+            match dim {
+                DimExpr::Value(val) if *val > 0 => ans *= *val as usize,
+                _ => todo!(),
+            }
+        }
+        ans
+    }
 }
