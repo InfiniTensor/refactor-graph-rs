@@ -100,15 +100,6 @@ impl Drop for Tensor {
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct Shape(pub smallvec::SmallVec<[DimExpr; 4]>);
 
-/// Dimension of shapes maybe a value or a variable.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum DimExpr {
-    /// Shape value.
-    Value(i64),
-    /// Shape variable.
-    Variable(String),
-}
-
 impl Shape {
     /// Calculates the size of the shape.
     pub fn size(&self) -> usize {
@@ -120,5 +111,28 @@ impl Shape {
             }
         }
         ans
+    }
+}
+
+/// Dimension of shapes maybe a value or a variable.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum DimExpr {
+    /// Shape value.
+    Value(i64),
+    /// Shape variable.
+    Variable(String),
+}
+
+impl From<i64> for DimExpr {
+    #[inline]
+    fn from(value: i64) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<String> for DimExpr {
+    #[inline]
+    fn from(value: String) -> Self {
+        Self::Variable(value)
     }
 }

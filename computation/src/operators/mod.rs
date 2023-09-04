@@ -3,6 +3,7 @@ mod eq;
 mod gemm;
 mod infer;
 mod matmul;
+mod pool;
 mod unary;
 
 use eq::OperatorEq;

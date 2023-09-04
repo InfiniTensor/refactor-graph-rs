@@ -4,7 +4,6 @@
 };
 use crate::{operators::infer::uinidir_broadcast, Edge, Shape, Tensor};
 use smallvec::smallvec;
-use std::rc::Rc;
 
 /// See <https://onnx.ai/onnx/operators/onnx__Gemm.html>.
 #[derive(PartialEq, Debug)]
@@ -59,7 +58,7 @@ impl OutputInference for Gemm {
                 }
             }
 
-            Ok(vec![Rc::new(Tensor::without_data(dt, ans_shape))])
+            Ok(vec![Edge::new(Tensor::without_data(dt, ans_shape))])
         }
     }
 }

@@ -22,7 +22,7 @@ pub enum InferError {
     BroadcastError,
 }
 
-pub fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
+pub(super) fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
     let mut candidates = shapes.iter().map(|x| x.0.iter().rev()).collect::<Vec<_>>();
 
     let mut ans = smallvec::SmallVec::new();
@@ -54,7 +54,7 @@ pub fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
     Some(Shape(ans))
 }
 
-pub fn uinidir_broadcast(target: &Shape, test: &Shape) -> bool {
+pub(super) fn uinidir_broadcast(target: &Shape, test: &Shape) -> bool {
     target.0.len() >= test.0.len() && {
         let mut target = target.0.iter().rev();
         for b in test.0.iter().rev() {
