@@ -70,6 +70,16 @@ impl Tensor {
     pub const fn shape(&self) -> &Shape {
         &self.shape
     }
+
+    /// Gets the data of the tensor.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the tensor has data allocated.
+    #[inline]
+    pub unsafe fn raw_data_unsafe(&self) -> *const u8 {
+        self.data.unwrap().as_ptr()
+    }
 }
 
 impl Default for Tensor {

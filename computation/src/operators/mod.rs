@@ -5,6 +5,7 @@ mod global_pool;
 mod infer;
 mod matmul;
 mod pool;
+mod reshape;
 mod unary;
 
 use eq::OperatorEq;
@@ -12,8 +13,10 @@ use infer::OutputInference;
 
 pub use binary::{Binary, BinaryOpType};
 pub use gemm::Gemm;
+pub use global_pool::GlobalPool;
 pub use infer::InferError;
 pub use matmul::MatMul;
+pub use pool::Pool;
 pub use unary::{Unary, UnaryOpType};
 
 /// 算子。
