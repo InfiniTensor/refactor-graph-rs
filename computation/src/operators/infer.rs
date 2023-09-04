@@ -9,11 +9,16 @@ pub trait OutputInference {
 
 pub type InferResult = Result<Vec<Edge>, InferError>;
 
+/// 推断错误类型。
 #[derive(Debug, PartialEq)]
 pub enum InferError {
+    /// 输入数量不匹配。
     InputsLenMismatch,
-    SizeMismatch,
+    /// 形状不匹配。
+    ShapeMismatch,
+    /// 数据类型不匹配。
     DataTypeMismatch,
+    /// 广播错误。
     BroadcastError,
 }
 

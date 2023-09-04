@@ -1,12 +1,12 @@
 ﻿use super::{
-    eq::{Downcast, OperatorEq},
     infer::{InferError, InferResult, OutputInference},
-    Operator,
+    m::impl_op,
 };
 use crate::{operators::infer::uinidir_broadcast, Edge, Shape, Tensor};
 use smallvec::smallvec;
-use std::{any::Any, rc::Rc};
+use std::rc::Rc;
 
+/// See <https://onnx.ai/onnx/operators/onnx__Gemm.html>.
 #[derive(PartialEq, Debug)]
 pub struct Gemm {
     alpha: f32,
@@ -15,24 +15,7 @@ pub struct Gemm {
     trans_b: bool,
 }
 
-impl Operator for Gemm {}
-
-impl Downcast for Gemm {
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl OperatorEq for Gemm {
-    #[inline]
-    fn op_eq(&self, rhs: &dyn OperatorEq) -> bool {
-        rhs.as_any()
-            .downcast_ref::<Self>()
-            .filter(|&rhs| self == rhs)
-            .is_some()
-    }
-}
+impl_op!(Gemm);
 
 impl OutputInference for Gemm {
     fn infer(&self, inputs: &[Edge]) -> InferResult {
@@ -46,7 +29,7 @@ impl OutputInference for Gemm {
                 return Err(InferError::DataTypeMismatch);
             }
             if a.shape().0.len() != 2 || b.shape().0.len() != 2 {
-                return Err(InferError::SizeMismatch);
+                return Err(InferError::ShapeMismatch);
             }
 
             let a = a.shape().0.as_slice();
@@ -62,7 +45,7 @@ impl OutputInference for Gemm {
                 (&b[0], &b[1])
             };
             if k != k_ {
-                return Err(InferError::SizeMismatch);
+                return Err(InferError::ShapeMismatch);
             }
 
             let ans_shape = Shape(smallvec![m.clone(), n.clone()]);
@@ -72,7 +55,7 @@ impl OutputInference for Gemm {
                     return Err(InferError::DataTypeMismatch);
                 }
                 if c.shape().0.len() != 2 || !uinidir_broadcast(&ans_shape, c.shape()) {
-                    return Err(InferError::SizeMismatch);
+                    return Err(InferError::ShapeMismatch);
                 }
             }
 

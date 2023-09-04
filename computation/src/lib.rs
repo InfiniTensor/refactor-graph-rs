@@ -11,6 +11,7 @@ use operators::Operator;
 use std::rc::Rc;
 
 pub use graph::Graph;
+pub use operators::{Binary, BinaryOpType, Gemm, InferError, MatMul, Unary, UnaryOpType};
 pub use tensor::{DimExpr, Shape, Tensor};
 
 /// 节点是一个算子，它可以有多个输入和多个输出。
