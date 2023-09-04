@@ -1,6 +1,7 @@
 ﻿mod binary;
 mod eq;
 mod gemm;
+mod global_pool;
 mod infer;
 mod matmul;
 mod pool;

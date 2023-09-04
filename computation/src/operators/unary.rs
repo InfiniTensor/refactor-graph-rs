@@ -15,7 +15,7 @@ impl_op!(Unary);
 impl OutputInference for Unary {
     fn infer(&self, inputs: &[Edge]) -> InferResult {
         if inputs.len() != 1 {
-            Err(InferError::ShapeMismatch)
+            Err(InferError::InputsLenMismatch)
         } else {
             use UnaryOpType::*;
             let data_type = inputs[0].data_type();

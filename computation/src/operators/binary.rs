@@ -15,7 +15,7 @@ impl_op!(Binary);
 impl OutputInference for Binary {
     fn infer(&self, inputs: &[Edge]) -> InferResult {
         if inputs.len() != 2 {
-            Err(InferError::ShapeMismatch)
+            Err(InferError::InputsLenMismatch)
         } else {
             let a = inputs[0].as_ref();
             let b = inputs[1].as_ref();
