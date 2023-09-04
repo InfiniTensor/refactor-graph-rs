@@ -1,10 +1,29 @@
-use super::OperatorInference;
+use super::{
+    eq::{Downcast, OperatorEq},
+    infer::{InferResult, OutputInference},
+};
+use crate::Edge;
+use std::any::Any;
 
-pub struct MatMul {}
+#[derive(PartialEq, Debug)]
+pub struct MatMul;
 
-impl OperatorInference for MatMul {
-    fn infer(&self, inputs: &Vec<crate::edge::Edge>) -> super::InferResult {
-        // Ok(inputs)
+impl Downcast for MatMul {
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl OperatorEq for MatMul {
+    #[inline]
+    fn op_eq(&self, rhs: &dyn OperatorEq) -> bool {
+        rhs.as_any().is::<Self>()
+    }
+}
+
+impl OutputInference for MatMul {
+    fn infer(&self, _inputs: &[Edge]) -> InferResult {
         todo!()
     }
 }

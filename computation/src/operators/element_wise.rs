@@ -1,6 +1,5 @@
-use crate::edge::{Edge, Shape, ShapeVariable, Tensor};
-
 use super::{InferResult, OperatorInference};
+use crate::edge::{Edge, Shape, ShapeVariable, Tensor};
 
 pub struct ElementWise {
     element_wise_type: ElementWiseType,

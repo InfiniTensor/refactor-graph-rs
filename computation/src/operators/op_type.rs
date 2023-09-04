@@ -1,4 +1,4 @@
-#[allow(missing_docs)]
+#[allow(unused, missing_docs, clippy::upper_case_acronyms)]
 #[derive(Clone, Debug)]
 pub enum OpType {
     Unknown,
