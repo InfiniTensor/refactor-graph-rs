@@ -1,5 +1,9 @@
 ﻿mod binary;
+mod compress;
+mod conv;
+mod det;
 mod eq;
+mod gather;
 mod gemm;
 mod global_pool;
 mod infer;

@@ -2,6 +2,8 @@
 use smallvec::SmallVec;
 use std::ptr::NonNull;
 
+use crate::InferError;
+
 /// Tensor.
 #[derive(PartialEq, Eq, Debug)]
 pub struct Tensor {
@@ -80,6 +82,14 @@ impl Tensor {
     pub unsafe fn raw_data_unsafe(&self) -> *const u8 {
         self.data.unwrap().as_ptr()
     }
+
+    /// Gets the data pointer of the tensor.
+    pub fn data_ptr(&self) -> Result<NonNull<u8>, InferError> {
+        match self.data {
+            Some(ptr) => Ok(ptr),
+            None => Err(InferError::ValueLack),
+        }
+    }
 }
 
 impl Default for Tensor {
@@ -144,5 +154,16 @@ impl From<String> for DimExpr {
     #[inline]
     fn from(value: String) -> Self {
         Self::Variable(value)
+    }
+}
+
+impl DimExpr {
+    /// Gets the value of the dimension.
+    #[inline]
+    pub fn value(&self) -> Result<i64, InferError> {
+        match self {
+            Self::Value(val) => Ok(*val),
+            _ => todo!("Cannot get value of a variable dimension."),
+        }
     }
 }

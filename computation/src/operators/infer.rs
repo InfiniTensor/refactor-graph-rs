@@ -20,6 +20,12 @@ pub enum InferError {
     DataTypeMismatch,
     /// 广播错误。
     BroadcastError,
+    /// 秩不匹配。
+    RankMismatch,
+    /// 值缺失。
+    ValueLack,
+    /// 输入错误。
+    InputError,
 }
 
 pub(super) fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
