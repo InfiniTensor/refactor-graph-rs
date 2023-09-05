@@ -6,7 +6,7 @@ use crate::{Edge, InferError};
 
 /// See <https://onnx.ai/onnx/operators/onnx__MatMul.html>.
 #[derive(PartialEq, Eq, Debug)]
-pub struct MatMul;
+pub(super) struct MatMul;
 
 impl_op!(MatMul);
 

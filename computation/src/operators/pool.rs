@@ -8,9 +8,10 @@ use smallvec::{smallvec, SmallVec};
 /// 单目算子。
 #[derive(PartialEq, Eq, Debug)]
 pub struct Pool {
-    ty: PoolOpType,
-    kernel: Shape,
-    attrs: PoolAttributes,
+    pub(super) ty: PoolOpType,
+    pub(super) ceil_mode: bool,
+    pub(super) kernel_shape: SmallVec<[i64; 2]>,
+    pub(super) attrs: PoolAttributes,
 }
 
 impl_op!(Pool);
@@ -26,10 +27,11 @@ impl OutputInference for Pool {
                 return Err(InferError::DataTypeMismatch);
             }
             let dim = input.shape().0.len();
-            if dim != self.kernel.0.len() + 2 {
+            if dim != self.kernel_shape.len() + 2 {
                 return Err(InferError::ShapeMismatch);
             }
-            let Some(ans) = infer_pool(&input.shape().0[2..], &self.kernel.0, &self.attrs) else {
+            let Some(ans) = infer_pool(&input.shape().0[2..], &self.kernel_shape, &self.attrs)
+            else {
                 return Err(InferError::ShapeMismatch);
             };
             Ok(vec![Edge::new(Tensor::without_data(dt, ans))])
@@ -39,18 +41,20 @@ impl OutputInference for Pool {
 
 /// 单目运算类型。
 #[derive(PartialEq, Eq, Debug)]
-pub enum PoolOpType {}
+pub(super) enum PoolOpType {
+    Average,
+}
 
 #[derive(PartialEq, Eq, Debug)]
 pub(super) struct PoolAttributes {
-    dilations: Option<SmallVec<[i64; 2]>>,
-    pads: Option<SmallVec<[i64; 4]>>,
-    strides: Option<SmallVec<[i64; 2]>>,
+    pub dilations: Option<SmallVec<[i64; 2]>>,
+    pub pads: Option<SmallVec<[i64; 4]>>,
+    pub strides: Option<SmallVec<[i64; 2]>>,
 }
 
 pub(super) fn infer_pool(
     input: &[DimExpr],
-    kernel: &[DimExpr],
+    kernel: &[i64],
     attrs: &PoolAttributes,
 ) -> Option<Shape> {
     let dim = input.len();
@@ -90,13 +94,8 @@ pub(super) fn infer_pool(
             DimExpr::Variable(_) => todo!(),
             _ => unreachable!(),
         };
-        let kernel = match kernel[i] {
-            DimExpr::Value(val) if val > 0 => val,
-            DimExpr::Variable(_) => todo!(),
-            _ => unreachable!(),
-        };
         let d = input + pads[i] + pads[i + dim];
-        let k = (kernel - 1) * dilations[i] + 1;
+        let k = (kernel[i] - 1) * dilations[i] + 1;
         ans.0[i] = DimExpr::Value((d - k) / strides[i] + 1);
     }
     Some(ans)

@@ -68,7 +68,7 @@ impl From<ModelProto> for Graph {
             builder.nodes.insert(
                 name,
                 Operator {
-                    op_type: node.op_type,
+                    ty: node.op_type,
                     attributes: node.attribute.into_iter().map(take_attribute).collect(),
                 },
             );

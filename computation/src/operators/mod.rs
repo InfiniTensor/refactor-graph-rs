@@ -1,5 +1,6 @@
 ﻿mod binary;
 mod eq;
+mod functions;
 mod gemm;
 mod global_pool;
 mod infer;
@@ -11,13 +12,8 @@ mod unary;
 use eq::OperatorEq;
 use infer::OutputInference;
 
-pub use binary::{Binary, BinaryOpType};
-pub use gemm::Gemm;
-pub use global_pool::GlobalPool;
+pub use functions::*;
 pub use infer::InferError;
-pub use matmul::MatMul;
-pub use pool::Pool;
-pub use unary::{Unary, UnaryOpType};
 
 /// 算子。
 pub trait Operator: OutputInference + OperatorEq {}

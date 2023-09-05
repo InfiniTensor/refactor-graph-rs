@@ -6,8 +6,8 @@ use crate::Edge;
 
 /// 单目算子。
 #[derive(PartialEq, Eq, Debug)]
-pub struct Unary {
-    ty: UnaryOpType,
+pub(super) struct Unary {
+    pub ty: UnaryOpType,
 }
 
 impl_op!(Unary);
@@ -35,35 +35,20 @@ impl OutputInference for Unary {
 
 /// 单目运算类型。
 #[derive(PartialEq, Eq, Debug)]
-pub enum UnaryOpType {
-    /// See <https://onnx.ai/onnx/operators/onnx__Abs.html>.
+pub(super) enum UnaryOpType {
     Abs,
-    /// See <https://onnx.ai/onnx/operators/onnx__Relu.html>.
     Relu,
-    /// See <https://onnx.ai/onnx/operators/onnx__PRelu.html>.
     PRelu,
-    /// See <https://onnx.ai/onnx/operators/onnx__Acos.html>.
     Acos,
-    /// See <https://onnx.ai/onnx/operators/onnx__Acosh.html>.
     Acosh,
-    /// See <https://onnx.ai/onnx/operators/onnx__Asin.html>.
     Asin,
-    /// See <https://onnx.ai/onnx/operators/onnx__Asinh.html>.
     Asinh,
-    /// See <https://onnx.ai/onnx/operators/onnx__Atan.html>.
     Atan,
-    /// See <https://onnx.ai/onnx/operators/onnx__Atanh.html>.
     Atanh,
-    /// See <https://onnx.ai/onnx/operators/onnx__Cos.html>.
     Cos,
-    /// See <https://onnx.ai/onnx/operators/onnx__Cosh.html>.
     Cosh,
-    /// See <https://onnx.ai/onnx/operators/onnx__Sin.html>.
     Sin,
-    /// See <https://onnx.ai/onnx/operators/onnx__Sinh.html>.
     Shinh,
-    /// See <https://onnx.ai/onnx/operators/onnx__Tan.html>.
     Tan,
-    /// See <https://onnx.ai/onnx/operators/onnx__Tanh.html>.
     Tanh,
 }
