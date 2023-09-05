@@ -14,6 +14,8 @@ struct Kernel {
     readers: Vec<Layout>,
     /// 所有输出的写法。
     writers: Vec<Layout>,
+    /// 核属性。
+    attributes: (),
 }
 
 /// 内存块。
@@ -24,6 +26,8 @@ struct MemoryBlock {
     data: Option<NonNull<u8>>,
     /// 要分配的段。可以用空字符串表示默认值。
     segment: String,
+    /// 访存存类型/级别。
+    memory_type_level: usize,
 }
 
 /// 读写方式。
