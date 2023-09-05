@@ -6,8 +6,8 @@ use crate::{Edge, Tensor};
 
 /// 双目算子。
 #[derive(PartialEq, Eq, Debug)]
-pub struct Binary {
-    ty: BinaryOpType,
+pub(super) struct Binary {
+    pub ty: BinaryOpType,
 }
 
 impl_op!(Binary);
@@ -33,13 +33,9 @@ impl OutputInference for Binary {
 
 /// 双目运算类型。
 #[derive(PartialEq, Eq, Debug)]
-pub enum BinaryOpType {
-    /// See <https://onnx.ai/onnx/operators/onnx__Add.html>.
+pub(super) enum BinaryOpType {
     Add,
-    /// See <https://onnx.ai/onnx/operators/onnx__Sub.html>.
     Sub,
-    /// See <https://onnx.ai/onnx/operators/onnx__Mul.html>.
     Mul,
-    /// See <https://onnx.ai/onnx/operators/onnx__Div.html>.
     Div,
 }

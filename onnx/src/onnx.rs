@@ -1,6 +1,6 @@
-﻿use crate::{Attribute, Graph, Operator, Tensor};
+﻿use crate::graph::{Attribute, Graph, Operator};
 use common::DataType;
-use computation::{DimExpr, Shape};
+use computation::{DimExpr, Shape, Tensor};
 use graph_topo::{Builder as GraphBuilder, Searcher};
 use internal::{
     attribute_proto::AttributeType, tensor_proto, tensor_proto::DataLocation, tensor_shape_proto,
@@ -68,7 +68,7 @@ impl From<ModelProto> for Graph {
             builder.nodes.insert(
                 name,
                 Operator {
-                    op_type: node.op_type,
+                    ty: node.op_type,
                     attributes: node.attribute.into_iter().map(take_attribute).collect(),
                 },
             );

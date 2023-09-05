@@ -1,4 +1,4 @@
-﻿use super::{
+use super::{
     infer::{InferError, InferResult, OutputInference},
     m::impl_op,
 };
@@ -7,11 +7,11 @@ use smallvec::smallvec;
 
 /// See <https://onnx.ai/onnx/operators/onnx__Gemm.html>.
 #[derive(PartialEq, Debug)]
-pub struct Gemm {
-    alpha: f32,
-    beta: f32,
-    trans_a: bool,
-    trans_b: bool,
+pub(super) struct Gemm {
+    pub alpha: f32,
+    pub beta: f32,
+    pub trans_a: bool,
+    pub trans_b: bool,
 }
 
 impl_op!(Gemm);

@@ -8,7 +8,7 @@ use std::slice::from_raw_parts;
 
 /// 修改形状算子。
 #[derive(PartialEq, Eq, Debug)]
-pub struct Reshape;
+pub(super) struct Reshape;
 
 impl_op!(Reshape);
 

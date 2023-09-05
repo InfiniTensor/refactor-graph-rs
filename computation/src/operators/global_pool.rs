@@ -7,8 +7,8 @@ use smallvec::smallvec;
 
 /// 全图池化算子。
 #[derive(PartialEq, Eq, Debug)]
-pub struct GlobalPool {
-    ty: GlobalPoolOpType,
+pub(super) struct GlobalPool {
+    pub ty: GlobalPoolOpType,
 }
 
 impl_op!(GlobalPool);
