@@ -46,7 +46,7 @@ pub enum SaveError {
 
 impl From<ModelProto> for Graph {
     fn from(model: ModelProto) -> Self {
-        let mut builder = GraphBuilder::<String, Operator, String, Tensor>::new();
+        let mut builder = GraphBuilder::default();
         let graph = model.graph.unwrap();
 
         let mut name_record = HashMap::new();

@@ -7,8 +7,8 @@ use std::{
     hash::Hash,
 };
 
-/// 图拓扑生成器。
-#[derive(Default, Debug)]
+/// 图建造者。
+#[derive(Debug)]
 pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     /// 拓扑结构记录：节点-入边-出边。
     pub topology: HashMap<NodeKey, (Vec<EdgeKey>, Vec<EdgeKey>)>,
@@ -18,7 +18,7 @@ pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     pub global_outputs: Vec<EdgeKey>,
     /// 已知的节点信息。
     ///
-    /// 理论上说，每个节点都有部分信息是不可推断的。
+    /// 理论上说节点信息是不可推断的。
     pub nodes: HashMap<NodeKey, Node>,
     /// 已知的边信息。
     ///
@@ -26,23 +26,27 @@ pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     pub edges: HashMap<EdgeKey, Edge>,
 }
 
-#[derive(Clone, Debug)]
 /// 用于保存构建结果的数据结构，对节点和边重新排序。
+#[derive(Clone, Debug)]
 pub struct Graph<Node, Edge> {
+    /// 节点和边的拓扑结构。
     pub topology: GraphTopo,
+    /// 所有节点的信息。
     pub nodes: Vec<Node>,
+    /// 所有边的信息。
     pub edges: Vec<Edge>,
 }
 
-impl<KN, N, KE, E> Builder<KN, N, KE, E> {
+impl<KN, N, KE, E> Default for Builder<KN, N, KE, E> {
+    /// 创建一个空的建造者。
     #[inline]
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
-            topology: HashMap::new(),
-            global_inputs: Vec::new(),
-            global_outputs: Vec::new(),
-            nodes: HashMap::new(),
-            edges: HashMap::new(),
+            topology: Default::default(),
+            global_inputs: Default::default(),
+            global_outputs: Default::default(),
+            nodes: Default::default(),
+            edges: Default::default(),
         }
     }
 }

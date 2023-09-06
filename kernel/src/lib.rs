@@ -1,5 +1,9 @@
+mod foreigner;
+
 use smallvec::SmallVec;
 use std::{ptr::NonNull, rc::Rc};
+
+pub use foreigner::ForeignSubgrpah;
 
 pub struct Graph(graph_topo::Graph<Node, Edge>);
 

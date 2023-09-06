@@ -1,6 +1,7 @@
 ﻿mod internal;
 
-use internal::Internal;
+use crate::GraphTopo;
+use internal::{Internal, NodeIdx};
 use std::{
     cell::RefCell,
     collections::HashSet,
@@ -8,23 +9,23 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::GraphTopo;
-
-use self::internal::NodeIdx;
-
+/// 图拓扑索引器。
 pub struct Searcher(Rc<RefCell<Internal>>);
 
 impl Searcher {
+    /// 获取节点集合。
     #[inline]
     pub fn nodes(&self) -> Nodes {
         Nodes(Rc::downgrade(&self.0))
     }
 
+    /// 获取边集合。
     #[inline]
     pub fn edges(&self) -> Edges {
         Edges(Rc::downgrade(&self.0))
     }
 
+    /// 获取全图输入边。
     pub fn global_inputs(&self) -> Vec<Edge> {
         let weak = Rc::downgrade(&self.0);
         let internal = self.0.borrow();
@@ -35,6 +36,7 @@ impl Searcher {
             .collect()
     }
 
+    /// 获取全图输出边。
     pub fn global_outputs(&self) -> Vec<Edge> {
         let weak = Rc::downgrade(&self.0);
         let internal = self.0.borrow();
@@ -45,6 +47,7 @@ impl Searcher {
             .collect()
     }
 
+    /// 获取局部边。
     pub fn local_edges(&self) -> HashSet<Edge> {
         let weak = Rc::downgrade(&self.0);
         let internal = self.0.borrow();
@@ -55,11 +58,13 @@ impl Searcher {
             .collect()
     }
 
+    /// 检查一个节点是否属于这个图。
     #[inline]
     pub fn contains_node(&self, node: &Node) -> bool {
         node.0.ptr_eq(&Rc::downgrade(&self.0))
     }
 
+    /// 检查一个边是否属于这个图。
     #[inline]
     pub fn contains_edge(&self, edge: &Edge) -> bool {
         edge.0.ptr_eq(&Rc::downgrade(&self.0))
@@ -81,10 +86,14 @@ impl From<&GraphTopo> for Searcher {
     }
 }
 
+/// 节点集合。
 pub struct Nodes(Weak<RefCell<Internal>>);
+/// 边集合。
 pub struct Edges(Weak<RefCell<Internal>>);
+/// 节点索引器。
 #[derive(Clone)]
 pub struct Node(Weak<RefCell<Internal>>, usize);
+/// 边索引器。
 #[derive(Clone)]
 pub struct Edge(Weak<RefCell<Internal>>, usize);
 #[derive(Clone)]
@@ -212,11 +221,13 @@ impl Hash for Node {
 }
 
 impl Node {
+    /// 获取节点序号。
     #[inline]
     pub const fn index(&self) -> usize {
         self.1
     }
 
+    /// 获取节点入边。
     pub fn inputs(&self) -> Vec<Edge> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
@@ -227,6 +238,7 @@ impl Node {
             .collect()
     }
 
+    /// 获取节点出边。
     pub fn outputs(&self) -> Vec<Edge> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
@@ -237,6 +249,7 @@ impl Node {
             .collect()
     }
 
+    /// 获取节点前驱。
     pub fn predecessors(&self) -> HashSet<Node> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
@@ -247,6 +260,7 @@ impl Node {
             .collect()
     }
 
+    /// 获取节点后继。
     pub fn successors(&self) -> HashSet<Node> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
@@ -276,11 +290,13 @@ impl Hash for Edge {
 }
 
 impl Edge {
+    /// 获取边序号。
     #[inline]
     pub const fn index(&self) -> usize {
         self.1
     }
 
+    /// 获取边源节点。
     pub fn source(&self) -> Option<Node> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
@@ -292,6 +308,7 @@ impl Edge {
         }
     }
 
+    /// 获取边目标节点。
     pub fn targets(&self) -> Vec<Node> {
         let internal = self.0.upgrade().expect("Graph has been dropped");
         let internal = internal.borrow();
