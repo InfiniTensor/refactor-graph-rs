@@ -16,9 +16,7 @@ pub struct Compress {
     /// input is flattened before elements being selected.
     /// Negative value means counting dimensions from the back.
     /// Accepted range is [-r, r-1] where r = rank(input).
-    axis: Option<i32>,
-    /// Array that selects which slices to be selected.
-    condition: Vec<bool>,
+    pub axis: Option<i32>,
 }
 
 impl_op!(Compress);
@@ -38,11 +36,10 @@ impl OutputInference for Compress {
         let condition_shape = condition.shape().0[0].value()?;
         let condition_data = unsafe {
             from_raw_parts(
-                condition.data_ptr()?.as_ptr() as *const bool,
+                condition.raw_data_unsafe() as *const bool,
                 condition_shape as usize,
             )
         };
-
         // Outputs: Tensor of rank r if axis is specified. Otherwise output is a Tensor
         // of rank r 1.
 
@@ -61,5 +58,50 @@ impl OutputInference for Compress {
             inputs[0].data_type(),
             shape,
         ))])
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::mem::ManuallyDrop;
+    use std::ptr;
+
+    use crate::operators::compress::Compress;
+    use crate::operators::infer::OutputInference;
+    use crate::{DimExpr, Shape, Tensor};
+    use common::DataType;
+
+    use smallvec::smallvec;
+
+    #[test]
+    fn test_compress() {
+        let compress_op = Compress { axis: Some(1) };
+        let input = Tensor::without_data(
+            DataType::F64,
+            Shape(smallvec![
+                DimExpr::Value(2),
+                DimExpr::Value(3),
+                DimExpr::Value(2)
+            ]),
+        );
+        let mut condition_data = vec![true, false, true];
+        let condition = Tensor::with_data(
+            DataType::BOOL,
+            Shape(smallvec![DimExpr::Value(3)]),
+            condition_data.as_mut_ptr() as *mut u8,
+        );
+        let res = compress_op
+            .infer([input.into(), condition.into()].as_ref())
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(
+            res[0].as_ref().shape().clone(),
+            Shape(smallvec![
+                DimExpr::Value(2),
+                DimExpr::Value(2),
+                DimExpr::Value(2)
+            ])
+        );
     }
 }

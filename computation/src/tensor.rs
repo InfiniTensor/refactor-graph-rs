@@ -82,14 +82,6 @@ impl Tensor {
     pub unsafe fn raw_data_unsafe(&self) -> *const u8 {
         self.data.unwrap().as_ptr()
     }
-
-    /// Gets the data pointer of the tensor.
-    pub fn data_ptr(&self) -> Result<NonNull<u8>, InferError> {
-        match self.data {
-            Some(ptr) => Ok(ptr),
-            None => Err(InferError::ValueLack),
-        }
-    }
 }
 
 impl Default for Tensor {

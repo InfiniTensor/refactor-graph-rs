@@ -25,7 +25,7 @@ impl OutputInference for Det {
             ans_dim.push(DimExpr::Value(1));
         } else {
             for i in 0..(rank - 2) {
-                ans_dim.push(dim[i].clone());
+                ans_dim.push(dim[i + 2].clone());
             }
         }
         let shape = Shape(ans_dim);
@@ -35,3 +35,9 @@ impl OutputInference for Det {
         ))])
     }
 }
+
+// #[cfg(test)]
+// mod test {
+//     #[test]
+//     fn test_det() {}
+// }
