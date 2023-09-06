@@ -73,6 +73,12 @@ impl Tensor {
         &self.shape
     }
 
+    /// Gets the dimension of the tensor.
+    #[inline]
+    pub fn rank(&self) -> usize {
+        self.shape.0.len()
+    }
+
     /// Gets the data of the tensor.
     ///
     /// # Safety

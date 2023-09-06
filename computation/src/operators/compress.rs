@@ -63,13 +63,12 @@ impl OutputInference for Compress {
 
 #[cfg(test)]
 mod test {
-    use std::mem::ManuallyDrop;
-    use std::ptr;
-
     use crate::operators::compress::Compress;
     use crate::operators::infer::OutputInference;
     use crate::{DimExpr, Shape, Tensor};
     use common::DataType;
+
+    use std::alloc;
 
     use smallvec::smallvec;
 
@@ -84,7 +83,11 @@ mod test {
                 DimExpr::Value(2)
             ]),
         );
-        let mut condition_data = vec![true, false, true];
+        let layout = DataType::BOOL.array_layout(3);
+        let condition_data_ptr = unsafe { alloc::alloc(layout) as *mut bool };
+        let condition_data = unsafe { std::slice::from_raw_parts_mut(condition_data_ptr, 3) };
+        condition_data.copy_from_slice(&[true, false, true]);
+
         let condition = Tensor::with_data(
             DataType::BOOL,
             Shape(smallvec![DimExpr::Value(3)]),
