@@ -38,8 +38,6 @@ impl OutputInference for Det {
 
 #[cfg(test)]
 mod test {
-    use crate::operators::det;
-
     #[test]
     fn test_det() {
         use crate::operators::OutputInference;
