@@ -1,7 +1,7 @@
 #![deny(warnings)]
 
-mod graph;
 mod onnx;
+mod operators;
 
-pub use graph::{Attribute, Graph, Operator};
-pub use onnx::{load_model, save_model, LoadError, SaveError};
+pub use onnx::{load_model, model_to_graph, save_model, LoadError, SaveError};
+pub use operators::register_operators;

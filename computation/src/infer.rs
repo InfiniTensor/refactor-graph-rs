@@ -3,10 +3,7 @@ use crate::{
     Edge,
 };
 
-pub trait OutputInference {
-    fn infer(&self, inputs: &[Edge]) -> InferResult;
-}
-
+/// 推断结果是边的列表或错误。
 pub type InferResult = Result<Vec<Edge>, InferError>;
 
 /// 推断错误类型。
@@ -20,9 +17,17 @@ pub enum InferError {
     DataTypeMismatch,
     /// 广播错误。
     BroadcastError,
+    /// 秩不匹配。
+    RankMismatch,
+    /// 形状中的变量导致无法继续推导。
+    ShapeValueLack(String),
+    /// 值缺失。
+    ValueLack,
+    /// 输入错误。
+    InputError,
 }
 
-pub(super) fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
+pub fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
     let mut candidates = shapes.iter().map(|x| x.0.iter().rev()).collect::<Vec<_>>();
 
     let mut ans = smallvec::SmallVec::new();
@@ -54,7 +59,7 @@ pub(super) fn multidir_broadcast(shapes: &[&Shape]) -> Option<Shape> {
     Some(Shape(ans))
 }
 
-pub(super) fn uinidir_broadcast(target: &Shape, test: &Shape) -> bool {
+pub fn uinidir_broadcast(target: &Shape, test: &Shape) -> bool {
     target.0.len() >= test.0.len() && {
         let mut target = target.0.iter().rev();
         for b in test.0.iter().rev() {

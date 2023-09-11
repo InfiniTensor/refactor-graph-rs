@@ -13,7 +13,7 @@ use eq::OperatorEq;
 use infer::OutputInference;
 
 pub use functions::*;
-pub use infer::InferError;
+pub use infer::{InferError, InferResult};
 
 /// 算子。
 pub trait Operator: OutputInference + OperatorEq {}

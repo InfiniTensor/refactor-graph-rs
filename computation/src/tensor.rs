@@ -1,13 +1,14 @@
-﻿use common::DataType;
+﻿use crate::blob::Blob;
+use common::DataType;
 use smallvec::SmallVec;
-use std::ptr::NonNull;
+use std::rc::Rc;
 
 /// Tensor.
 #[derive(PartialEq, Eq, Debug)]
 pub struct Tensor {
     dt: DataType,
     shape: Shape,
-    data: Option<NonNull<u8>>,
+    data: Rc<Blob>,
 }
 
 impl Tensor {
@@ -17,18 +18,14 @@ impl Tensor {
         Self {
             dt: DataType::UNDEFINED,
             shape: Shape(SmallVec::new()),
-            data: None,
+            data: Rc::new(Blob::EMPTY),
         }
     }
 
     /// Creates a new tensor with data allocated.
     #[inline]
-    pub fn with_data(dt: DataType, shape: Shape, data: *mut u8) -> Self {
-        Self {
-            dt,
-            shape,
-            data: NonNull::new(data),
-        }
+    pub fn with_data(dt: DataType, shape: Shape, data: Rc<Blob>) -> Self {
+        Self { dt, shape, data }
     }
 
     /// Creates a new tensor without data allocated.
@@ -37,14 +34,14 @@ impl Tensor {
         Self {
             dt,
             shape,
-            data: None,
+            data: Rc::new(Blob::EMPTY),
         }
     }
 
     /// Checks if the tensor is unknown.
     #[inline]
     pub fn is_unknown(&self) -> bool {
-        matches!(self.dt, DataType::UNDEFINED) && self.shape.0.is_empty() && self.data.is_none()
+        matches!(self.dt, DataType::UNDEFINED) && self.shape.0.is_empty() && !self.data.exist()
     }
 
     /// Checks if two tensors have the same data type and shape.
@@ -55,8 +52,8 @@ impl Tensor {
 
     /// Checks if the tensor has data allocated.
     #[inline]
-    pub const fn has_data(&self) -> bool {
-        self.data.is_some()
+    pub fn has_data(&self) -> bool {
+        self.data.exist()
     }
 
     /// Gets the data type of the tensor.
@@ -78,7 +75,7 @@ impl Tensor {
     /// The caller must ensure that the tensor has data allocated.
     #[inline]
     pub unsafe fn raw_data_unsafe(&self) -> *const u8 {
-        self.data.unwrap().as_ptr()
+        self.data.as_ptr_unchecked()
     }
 }
 
@@ -86,23 +83,6 @@ impl Default for Tensor {
     #[inline]
     fn default() -> Self {
         Self::unknown()
-    }
-}
-
-impl Drop for Tensor {
-    fn drop(&mut self) {
-        if let Some(ptr) = self.data.take() {
-            let size = self
-                .shape
-                .0
-                .iter()
-                .map(|d| match d {
-                    DimExpr::Value(val) => val,
-                    DimExpr::Variable(_) => unreachable!(),
-                })
-                .product::<i64>();
-            unsafe { std::alloc::dealloc(ptr.as_ptr(), self.dt.array_layout(size as _)) };
-        }
     }
 }
 

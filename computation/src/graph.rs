@@ -1,6 +1,4 @@
-﻿use crate::{operators::InferError, Edge, Node};
-
-/// 计算图。
+﻿/// 计算图。
 pub struct Graph(pub graph_topo::Graph<Node, Edge>);
 
 impl Graph {
