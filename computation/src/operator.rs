@@ -1,9 +1,14 @@
 ﻿#![allow(missing_docs)]
 
 use crate::{infer::InferResult, Edge};
-use std::{cell::OnceCell, collections::HashMap, str::FromStr, sync::Mutex};
+use once_cell::sync::OnceCell;
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Mutex, RwLock},
+};
 
-static MAP: Mutex<OnceCell<OpRepo>> = Mutex::new(OnceCell::new());
+static MAP: OnceCell<OpRepo> = OnceCell::new();
 
 #[derive(Clone, Debug)]
 pub enum Attribute {
@@ -13,6 +18,8 @@ pub enum Attribute {
     Floats(Vec<f32>),
     String(String),
     Strings(Vec<String>),
+    Tensor(Edge),
+    Tensors(Vec<Edge>),
 }
 
 #[derive(Clone, Debug)]
@@ -37,29 +44,39 @@ pub struct Op {
 
 #[derive(Default)]
 struct OpRepo {
+    map: RwLock<Map>,
+    known_list: Mutex<HashMap<&'static str, InferFn>>,
+}
+
+#[derive(Default)]
+struct Map {
     map: Vec<Op>,
     rev_map: HashMap<&'static str, usize>,
-    known_list: HashMap<&'static str, InferFn>,
 }
 
 impl FromStr for OpType {
     type Err = UnknownOp;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut map = MAP.lock().unwrap();
-        let repo = map.get_mut().unwrap();
-        if let Some(id) = repo.rev_map.get(s) {
+        let repo = MAP.get().unwrap();
+        let lock = repo.map.read().unwrap();
+        if let Some(id) = lock.rev_map.get(s) {
             Ok(OpType(*id))
-        } else if let Some((name, inference)) = repo.known_list.remove_entry(s) {
-            let id = repo.map.len();
-            repo.map.push(Op {
-                name: name.clone(),
-                inference,
-            });
-            repo.rev_map.insert(name, id);
-            Ok(OpType(id))
         } else {
-            Err(UnknownOp)
+            let known_list = &mut *repo.known_list.lock().unwrap();
+            if let Some((name, inference)) = known_list.remove_entry(s) {
+                let id = lock.map.len();
+                drop(lock);
+                let mut lock = repo.map.write().unwrap();
+                lock.map.push(Op {
+                    name: name.clone(),
+                    inference,
+                });
+                lock.rev_map.insert(name, id);
+                Ok(OpType(id))
+            } else {
+                Err(UnknownOp)
+            }
         }
     }
 }
@@ -69,23 +86,22 @@ impl OpType {
     where
         I: IntoIterator<Item = (&'static str, InferFn)>,
     {
-        let mut map = MAP.lock().unwrap();
-        let _ = map.get_or_init(Default::default);
-        let repo = map.get_mut().unwrap();
+        let repo = MAP.get_or_init(Default::default);
+        let rev_map = &repo.map.read().unwrap().rev_map;
+        let known_list = &mut *repo.known_list.lock().unwrap();
         for (name, inference) in ops {
-            if repo.rev_map.contains_key(&name) || repo.known_list.contains_key(&name) {
+            if rev_map.contains_key(&name) || known_list.contains_key(&name) {
                 panic!("Operator {name} already registered");
             }
-            repo.known_list.insert(name, inference);
+            known_list.insert(name, inference);
         }
     }
 }
 
 impl Operator {
     pub fn infer(&self, inputs: Vec<Edge>) -> InferResult {
-        let map = MAP.lock().unwrap();
-        let repo = map.get().unwrap();
-        let op = &repo.map[self.ty.0];
+        let repo = MAP.get().unwrap();
+        let op = &repo.map.read().unwrap().map[self.ty.0];
         (op.inference)(self, inputs)
     }
 }

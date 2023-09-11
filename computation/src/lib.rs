@@ -14,6 +14,7 @@ use std::rc::Rc;
 pub extern crate smallvec;
 
 pub use blob::Blob;
+pub use graph::Graph;
 pub use infer::{InferError, InferResult};
 pub use operator::{Attribute, InferFn, Op, OpType, Operator};
 pub use tensor::{DimExpr, Shape, Tensor};
