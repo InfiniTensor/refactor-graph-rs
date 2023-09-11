@@ -110,7 +110,7 @@ pub enum DimExpr {
     /// Shape value.
     Value(i64),
     /// Shape variable.
-    Variable(String),
+    Variable(Rc<String>),
 }
 
 impl From<i64> for DimExpr {
@@ -123,6 +123,6 @@ impl From<i64> for DimExpr {
 impl From<String> for DimExpr {
     #[inline]
     fn from(value: String) -> Self {
-        Self::Variable(value)
+        Self::Variable(Rc::new(value))
     }
 }

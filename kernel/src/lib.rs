@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 mod foreigner;
 
 use smallvec::SmallVec;

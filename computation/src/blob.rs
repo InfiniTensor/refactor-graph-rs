@@ -12,8 +12,13 @@ impl Blob {
         layout: Layout::new::<u8>(),
     };
 
+    /// Creates a new blob with data allocated.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the data is valid.
     #[inline]
-    pub fn new(layout: Layout, data: *const u8) -> Self {
+    pub unsafe fn new(layout: Layout, data: *const u8) -> Self {
         let ptr = unsafe { NonNull::new_unchecked(std::alloc::alloc(layout)) };
         unsafe { ptr.as_ptr().copy_from_nonoverlapping(data, layout.size()) };
         Self {
@@ -22,16 +27,27 @@ impl Blob {
         }
     }
 
+    /// Checks if the blob has data allocated.
     #[inline]
     pub const fn exist(&self) -> bool {
         self.ptr.is_some()
     }
 
+    /// Gets the pointer to the data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the blob has data allocated.
     #[inline]
     pub unsafe fn as_ptr_unchecked(&self) -> *const u8 {
         self.ptr.unwrap().as_ptr()
     }
 
+    /// Gets the mutable pointer to the data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the blob has data allocated.
     #[inline]
     pub unsafe fn as_mut_ptr_unchecked(&self) -> *mut u8 {
         self.ptr.unwrap().as_ptr()

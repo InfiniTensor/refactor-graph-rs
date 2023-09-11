@@ -1,4 +1,6 @@
-﻿/// 计算图。
+﻿use crate::{Edge, InferError, Node};
+
+/// 计算图。
 pub struct Graph(pub graph_topo::Graph<Node, Edge>);
 
 impl Graph {
@@ -9,7 +11,7 @@ impl Graph {
                 .into_iter()
                 .map(|i| self.0.edges[i].clone())
                 .collect::<Vec<_>>();
-            let infered = self.0.nodes[node_idx].infer(&inputs)?;
+            let infered = self.0.nodes[node_idx].infer(inputs)?;
             if infered.len() < outputs.len() {
                 panic!("Operator {node_idx:?} returns too few outputs");
             }

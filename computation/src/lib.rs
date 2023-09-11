@@ -4,7 +4,7 @@
 // #![deny(missing_docs)]
 
 mod blob;
-// mod graph;
+mod graph;
 mod infer;
 mod operator;
 mod tensor;

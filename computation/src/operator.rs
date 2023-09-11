@@ -80,3 +80,12 @@ impl OpType {
         }
     }
 }
+
+impl Operator {
+    pub fn infer(&self, inputs: Vec<Edge>) -> InferResult {
+        let map = MAP.lock().unwrap();
+        let repo = map.get().unwrap();
+        let op = &repo.map[self.ty.0];
+        (op.inference)(self, inputs)
+    }
+}

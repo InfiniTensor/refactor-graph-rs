@@ -132,8 +132,8 @@ fn build_tensor_without_data(value: ValueInfoProto) -> (String, Edge) {
                     .dim
                     .into_iter()
                     .map(|d| match d.value {
-                        Some(DimValue(val)) => DimExpr::Value(val),
-                        Some(DimParam(p)) => DimExpr::Variable(p),
+                        Some(DimValue(value)) => value.into(),
+                        Some(DimParam(name)) => name.into(),
                         None => unreachable!(),
                     })
                     .collect(),
@@ -156,10 +156,7 @@ fn build_tensor_with_data(tensor: TensorProto) -> (String, Edge) {
                 assert_eq!(tensor.raw_data.len(), size * dt.layout().size());
                 tensor.raw_data.as_ptr()
             };
-            let layout = dt.array_layout(size);
-            let ans = Rc::new(Blob::new(layout, src));
-
-            ans
+            Rc::new(unsafe { Blob::new(dt.array_layout(size), src) })
         }};
     }
 

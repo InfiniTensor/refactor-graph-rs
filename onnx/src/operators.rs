@@ -1,6 +1,5 @@
-﻿use std::collections::BTreeMap;
-
-use computation::{Edge, InferResult, OpType, Operator};
+﻿use computation::{Edge, InferResult, OpType, Operator};
+use std::collections::BTreeMap;
 
 pub fn register_operators() {
     let x = BTreeMap::from([
