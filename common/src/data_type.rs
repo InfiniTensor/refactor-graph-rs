@@ -35,13 +35,13 @@ impl DataType {
             DataType::I64 => Layout::new::<i64>(),
             DataType::STRING => unreachable!(),
             DataType::BOOL => Layout::new::<bool>(),
-            DataType::FP16 => todo!(),
+            DataType::FP16 => Layout::new::<half::f16>(),
             DataType::F64 => Layout::new::<f64>(),
             DataType::U32 => Layout::new::<u32>(),
             DataType::U64 => Layout::new::<u64>(),
             DataType::COMPLEX64 => todo!(),
             DataType::COMPLEX128 => todo!(),
-            DataType::BF16 => todo!(),
+            DataType::BF16 => Layout::new::<half::bf16>(),
         }
     }
 
@@ -124,79 +124,28 @@ pub trait AsDataType {
     fn as_data_type() -> DataType;
 }
 
-impl AsDataType for f32 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::F32
-    }
+macro_rules! impl_as_data_type_for {
+    ($t:ty, $dt:ident) => {
+        impl AsDataType for $t {
+            #[inline]
+            fn as_data_type() -> DataType {
+                DataType::$dt
+            }
+        }
+    };
 }
 
-impl AsDataType for u8 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::U8
-    }
-}
-
-impl AsDataType for i8 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::I8
-    }
-}
-
-impl AsDataType for u16 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::U16
-    }
-}
-
-impl AsDataType for i16 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::I16
-    }
-}
-
-impl AsDataType for i32 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::I32
-    }
-}
-
-impl AsDataType for i64 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::I64
-    }
-}
-
-impl AsDataType for bool {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::BOOL
-    }
-}
-
-impl AsDataType for f64 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::F64
-    }
-}
-
-impl AsDataType for u32 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::U32
-    }
-}
-
-impl AsDataType for u64 {
-    #[inline]
-    fn as_data_type() -> DataType {
-        DataType::U64
-    }
-}
+impl_as_data_type_for!(f32, F32);
+impl_as_data_type_for!(u8, U8);
+impl_as_data_type_for!(i8, I8);
+impl_as_data_type_for!(u16, U16);
+impl_as_data_type_for!(i16, I16);
+impl_as_data_type_for!(i32, I32);
+impl_as_data_type_for!(i64, I64);
+impl_as_data_type_for!(String, STRING);
+impl_as_data_type_for!(bool, BOOL);
+impl_as_data_type_for!(half::f16, FP16);
+impl_as_data_type_for!(f64, F64);
+impl_as_data_type_for!(u32, U32);
+impl_as_data_type_for!(u64, U64);
+impl_as_data_type_for!(half::bf16, BF16);

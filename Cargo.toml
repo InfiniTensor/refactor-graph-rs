@@ -1,11 +1,3 @@
 [workspace]
-members = [
-    "common",
-    "graph-topo",
-    "onnx",
-    "computation",
-    "kernel-library",
-    "kernel",
-    "runtime",
-]
+members = ["common", "graph-topo"]
 resolver = "2"

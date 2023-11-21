@@ -1,10 +1,8 @@
-﻿use crate::{
-    container::{Node, OutputEdge},
-    GraphTopo,
-};
+﻿use crate::container::{Graph, GraphTopo, Node, OutputEdge};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
+    ops::Add,
 };
 
 /// 图建造者。
@@ -26,17 +24,6 @@ pub struct Builder<NodeKey, Node, EdgeKey, Edge> {
     pub edges: HashMap<EdgeKey, Edge>,
 }
 
-/// 用于保存构建结果的数据结构，对节点和边重新排序。
-#[derive(Clone, Debug)]
-pub struct Graph<Node, Edge> {
-    /// 节点和边的拓扑结构。
-    pub topology: GraphTopo,
-    /// 所有节点的信息。
-    pub nodes: Vec<Node>,
-    /// 所有边的信息。
-    pub edges: Vec<Edge>,
-}
-
 impl<KN, N, KE, E> Default for Builder<KN, N, KE, E> {
     /// 创建一个空的建造者。
     #[inline]
@@ -53,79 +40,91 @@ impl<KN, N, KE, E> Default for Builder<KN, N, KE, E> {
 
 impl<KN, N, KE, E> Builder<KN, N, KE, E>
 where
-    KN: Eq + Hash,
+    KN: Eq + Hash + Clone,
     KE: Eq + Hash,
     E: Default,
 {
     /// 消耗生成器构造图拓扑。
     pub fn build(mut self) -> Graph<N, E> {
-        let mut topo_nodes = Vec::new();
-        let mut connections = Vec::new();
-        let mut nodes = Vec::new();
-        let mut edges = Vec::new();
-
         // 边和序号的映射关系。
         let mut key_to_idx = HashMap::new();
-        // 可知来源的边，包括全图输入和节点输出。
-        let mut generated_edges = HashSet::new();
+        // 非局部边表。
+        let mut not_local = HashSet::new();
         // 映射全图输入边。
-        for edge in &self.global_inputs {
-            key_to_idx.insert(edge, edges.len());
-            edges.push(self.edges.remove(edge).unwrap_or_default());
-            generated_edges.insert(edge);
-        }
-        // 记录节点输出边。
-        for (_, outputs) in self.topology.values() {
-            generated_edges.extend(outputs);
-        }
-        // 迭代拓扑结构。
-        let mut mapped_nodes = HashSet::new();
-        while mapped_nodes.len() < self.topology.len() {
+        let mut edges = self
+            .global_inputs
+            .iter()
+            .enumerate()
+            .map(|(i, edge)| {
+                key_to_idx.insert(edge, i);
+                not_local.insert(edge);
+                self.edges.remove(edge).unwrap_or_default()
+            })
+            .collect::<Vec<_>>();
+        // 直接遍历拓扑以构建非局部边表
+        let mut connections = Vec::with_capacity(
+            self.topology
+                .values()
+                .map(|(inputs, outputs)| {
+                    not_local.extend(outputs);
+                    inputs.len()
+                })
+                .sum::<usize>()
+                .add(self.global_outputs.len()),
+        );
+        // 预留全图输出边的空间
+        connections.resize(self.global_outputs.len(), OutputEdge(usize::MAX));
+        // not_local 不再改变了
+        let not_local = not_local;
+
+        let mut topo_nodes = Vec::with_capacity(self.topology.len());
+        let mut nodes = Vec::with_capacity(self.topology.len());
+        let mut mapped = HashSet::<KN>::new();
+        while mapped.len() < self.topology.len() {
             for (kn, (inputs, outputs)) in &self.topology {
-                // 节点未映射，边已映射或局部。
-                if !mapped_nodes.contains(kn)
-                    && inputs
-                        .iter()
-                        .all(|i| key_to_idx.contains_key(i) || !generated_edges.contains(i))
-                {
-                    mapped_nodes.insert(kn);
-                    // 找到未映射的局部边。
-                    let new_local = inputs
-                        .iter()
-                        .filter(|e| !key_to_idx.contains_key(e) && !generated_edges.contains(e))
-                        .collect::<HashSet<_>>();
-                    // 添加节点。
-                    topo_nodes.push(Node {
-                        local_edges_len: new_local.len(),
-                        inputs_len: inputs.len(),
-                        outputs_len: outputs.len(),
-                    });
-                    nodes.push(self.nodes.remove(kn).expect("node inference not supported"));
-                    // 映射局部边。
-                    for edge in new_local {
-                        key_to_idx.insert(edge, edges.len());
-                        edges.push(self.edges.remove(edge).unwrap_or_default());
-                    }
-                    // 记录节点入边。
-                    for edge in inputs {
-                        connections.push(OutputEdge(key_to_idx[edge]));
-                    }
-                    // 映射节点出边。
-                    for edge in outputs {
-                        key_to_idx.insert(edge, edges.len());
-                        edges.push(self.edges.remove(edge).unwrap_or_default());
-                    }
+                // 过滤映射过的节点
+                if mapped.contains(&kn) {
+                    continue;
                 }
+                // 发现新局部边
+                let new_local = inputs
+                    .iter()
+                    .filter(|k| !key_to_idx.contains_key(k))
+                    .collect::<HashSet<_>>();
+                // 局部边里有非局部边 === 有未知边
+                if new_local.iter().any(|ke| not_local.contains(ke)) {
+                    continue;
+                }
+                // 映射节点
+                mapped.insert(kn.clone());
+                nodes.push(self.nodes.remove(kn).unwrap());
+                topo_nodes.push(Node {
+                    local_edges_len: new_local.len(),
+                    inputs_len: inputs.len(),
+                    outputs_len: outputs.len(),
+                });
+                // 映射边
+                for edge in new_local {
+                    key_to_idx.insert(edge, edges.len());
+                    edges.push(self.edges.remove(edge).unwrap_or_default());
+                }
+                for edge in outputs {
+                    key_to_idx.insert(edge, edges.len());
+                    edges.push(self.edges.remove(edge).unwrap_or_default());
+                }
+                // 映射连接
+                connections.extend(inputs.iter().map(|ke| OutputEdge(key_to_idx[ke])));
             }
         }
-        // 映射全图输出边。
-        for edge in &self.global_outputs {
-            connections.push(OutputEdge(key_to_idx[edge]));
+        // 映射全图输出边
+        for (i, edge) in self.global_outputs.iter().enumerate() {
+            connections[i] = OutputEdge(key_to_idx[edge]);
         }
 
         Graph {
             topology: GraphTopo {
                 global_inputs_len: self.global_inputs.len(),
+                global_outputs_len: self.global_outputs.len(),
                 nodes: topo_nodes,
                 connections,
             },
