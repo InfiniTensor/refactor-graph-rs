@@ -1,5 +1,5 @@
 [package]
-name = "operators"
+name = "computation"
 version = "0.0.0"
 edition = "2021"
 authors = ["YdrMaster <ydrml@hotmail.com>"]
@@ -9,3 +9,5 @@ authors = ["YdrMaster <ydrml@hotmail.com>"]
 [dependencies]
 common = { path = "../common" }
 graph-topo = { path = "../graph-topo" }
+smallvec = "1.11"
+static_assertions = "1.1.0"

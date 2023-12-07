@@ -3,9 +3,9 @@
 /// 与 Onnx 兼容的数据类型。
 ///
 /// > <https://onnx.ai/onnx/api/mapping.html#l-onnx-types-mapping>.
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[allow(missing_docs)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[repr(u8)]
 pub enum DataType {
     UNDEFINED = 0,
     F32 = 1,
