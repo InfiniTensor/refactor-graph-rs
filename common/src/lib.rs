@@ -1,4 +1,6 @@
-#![deny(warnings)]
+//!
+
+#![deny(warnings, missing_docs)]
 
 mod data_type;
 

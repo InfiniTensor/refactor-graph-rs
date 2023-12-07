@@ -1,7 +1,11 @@
 ﻿use std::alloc::Layout;
 
+/// 与 Onnx 兼容的数据类型。
+///
+/// > <https://onnx.ai/onnx/api/mapping.html#l-onnx-types-mapping>.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[allow(missing_docs)]
 pub enum DataType {
     UNDEFINED = 0,
     F32 = 1,
@@ -23,6 +27,7 @@ pub enum DataType {
 }
 
 impl DataType {
+    /// 获取数据类型的 [Layout]。
     pub const fn layout(&self) -> Layout {
         match self {
             DataType::UNDEFINED => unreachable!(),
@@ -45,6 +50,7 @@ impl DataType {
         }
     }
 
+    /// 获取数组的 [Layout]。
     pub fn array_layout(&self, len: usize) -> Layout {
         match self {
             DataType::UNDEFINED => unreachable!(),
@@ -67,6 +73,7 @@ impl DataType {
         }
     }
 
+    /// 判断是否数字数据类型。
     #[inline]
     pub const fn is_numeric(&self) -> bool {
         matches!(
@@ -86,6 +93,7 @@ impl DataType {
         )
     }
 
+    /// 判断是否整数数据类型。
     #[inline]
     pub const fn is_integer(&self) -> bool {
         matches!(
@@ -101,11 +109,13 @@ impl DataType {
         )
     }
 
+    /// 判断是否 IEEE754 浮点数数据类型。
     #[inline]
     pub const fn is_ieee754(&self) -> bool {
         matches!(self, DataType::F32 | DataType::F64 | DataType::FP16)
     }
 
+    /// 判断是否浮点数数据类型。
     #[inline]
     pub const fn is_float(&self) -> bool {
         matches!(
@@ -114,13 +124,16 @@ impl DataType {
         )
     }
 
+    /// 判断是否布尔数据类型。
     #[inline]
     pub const fn is_bool(&self) -> bool {
         matches!(self, DataType::BOOL)
     }
 }
 
+/// 将 rust 类型转换为 [DataType]。
 pub trait AsDataType {
+    /// 获取 rust 类型对应的 [DataType]。
     fn as_data_type() -> DataType;
 }
 
