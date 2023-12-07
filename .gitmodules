@@ -1,3 +1,0 @@
-[submodule "onnx/onnx-home"]
-	path = onnx/onnx-home
-	url = https://github.com/onnx/onnx.git
