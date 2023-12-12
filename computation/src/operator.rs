@@ -97,7 +97,7 @@ pub struct ReduceAttributes {
     /// 规约类型。
     pub ty: ReduceType,
     /// 轴。
-    pub axes: SmallVec<[Axis; 4]>,
+    pub axes: SmallVec<[Axis; 8]>,
 }
 
 /// 选择类型。
@@ -211,4 +211,119 @@ pub struct SliceAttribute(pub SmallVec<[SliceDim; 4]>);
 
 /// 转置排列。
 #[derive(Clone, Debug)]
-pub struct Permutation(pub SmallVec<[udim; 4]>);
+pub struct Permutation(pub SmallVec<[Axis; 8]>);
+
+impl From<(&str, &str)> for Operator {
+    fn from((op_type, args): (&str, &str)) -> Self {
+        macro_rules! binary {
+            ($t:ident) => {
+                Self::SimpleBinary(SimpleBinaryType::$t)
+            };
+        }
+        macro_rules! unary {
+            ($t:ident) => {
+                Self::SimpleUnary(SimpleUnaryType::$t)
+            };
+        }
+
+        match op_type {
+            "MatMul" => {
+                let mut args = args.split(',');
+                let parse_factor = |s: &str| {
+                    let (_, alpha) = s.split_once("=0x").unwrap();
+                    u32::from_str_radix(alpha, 16).map(f32::from_bits)
+                };
+                Self::MatMul {
+                    alpha: parse_factor(args.next().unwrap()).unwrap(),
+                    beta: parse_factor(args.next().unwrap()).unwrap(),
+                    transpose_a: args.next().unwrap().contains('T'),
+                    transpose_b: args.next().unwrap().contains('T'),
+                }
+            }
+            "Gather" => Self::Gather(Axis::from_args(args)),
+            "ReduceMean" => parse_reduce(op_type, args),
+
+            #[rustfmt::skip]    "Add" => binary!(Add    ),
+            #[rustfmt::skip]    "Sub" => binary!(Sub    ),
+            #[rustfmt::skip]    "Mul" => binary!(Mul    ),
+            #[rustfmt::skip]    "Div" => binary!(Div    ),
+            #[rustfmt::skip]    "Pow" => binary!(Pow    ),
+            #[rustfmt::skip]    "And" => binary!(And    ),
+            #[rustfmt::skip]     "Or" => binary!(Or     ),
+            #[rustfmt::skip]    "Xor" => binary!(Xor    ),
+            #[rustfmt::skip] "BitAnd" => binary!(BitAnd ),
+            #[rustfmt::skip]  "BitOr" => binary!(BitOr  ),
+            #[rustfmt::skip] "BitXor" => binary!(BitXor ),
+            #[rustfmt::skip]     "EQ" => binary!(EQ     ),
+            #[rustfmt::skip]     "NE" => binary!(NE     ),
+            #[rustfmt::skip]     "LT" => binary!(LT     ),
+            #[rustfmt::skip]     "LE" => binary!(LE     ),
+            #[rustfmt::skip]     "GT" => binary!(GT     ),
+            #[rustfmt::skip]     "GE" => binary!(GE     ),
+
+            #[rustfmt::skip]     "Abs" => unary!(Abs    ),
+            #[rustfmt::skip]    "Acos" => unary!(Acos   ),
+            #[rustfmt::skip]   "Acosh" => unary!(Acosh  ),
+            #[rustfmt::skip]    "Asin" => unary!(Asin   ),
+            #[rustfmt::skip]   "Asinh" => unary!(Asinh  ),
+            #[rustfmt::skip]    "Atan" => unary!(Atan   ),
+            #[rustfmt::skip]   "Atanh" => unary!(Atanh  ),
+            #[rustfmt::skip]     "Cos" => unary!(Cos    ),
+            #[rustfmt::skip]    "Cosh" => unary!(Cosh   ),
+            #[rustfmt::skip]     "Sin" => unary!(Sin    ),
+            #[rustfmt::skip]    "Sinh" => unary!(Sinh   ),
+            #[rustfmt::skip]     "Tan" => unary!(Tan    ),
+            #[rustfmt::skip]    "Tanh" => unary!(Tanh   ),
+            #[rustfmt::skip]    "Relu" => unary!(Relu   ),
+            #[rustfmt::skip]    "Sqrt" => unary!(Sqrt   ),
+            #[rustfmt::skip] "Sigmoid" => unary!(Sigmoid),
+            #[rustfmt::skip]     "Erf" => unary!(Erf    ),
+            #[rustfmt::skip]     "Neg" => unary!(Neg    ),
+            #[rustfmt::skip]     "Not" => unary!(Not    ),
+            #[rustfmt::skip]  "BitNot" => unary!(BitNot ),
+
+            "Softmax" => Self::Softmax(Axis::from_args(args)),
+            "Split" => Self::Split(Axis::from_args(args)),
+            "Transpose" => Self::Transpose(Box::new(Permutation(Axis::vec_from_args(args)))),
+            "Where" => Self::Where,
+
+            _ => todo!("unsupported operator \"{op_type}\""),
+        }
+    }
+}
+
+impl Axis {
+    #[inline]
+    fn from_args(args: &str) -> Self {
+        let (axis, _) = args.split_once('/').unwrap();
+        Self(axis.parse().unwrap())
+    }
+
+    fn vec_from_args<T: FromIterator<Self>>(args: &str) -> T {
+        args.trim_start_matches('[')
+            .trim_end_matches(']')
+            .split_whitespace()
+            .map(|d| Axis(d.parse::<udim>().unwrap()))
+            .collect()
+    }
+}
+
+fn parse_reduce(op_type: &str, args: &str) -> Operator {
+    let (axes, _) = args.split_once('/').unwrap();
+    Operator::Reduce(Box::new(ReduceAttributes {
+        ty: match op_type {
+            "ReduceMean" => ReduceType::Mean,
+            "ReduceL1" => ReduceType::L1,
+            "ReduceL2" => ReduceType::L2,
+            "ReduceLogSum" => ReduceType::LogSum,
+            "ReduceLogSumExp" => ReduceType::LogSumExp,
+            "ReduceMax" => ReduceType::Max,
+            "ReduceMin" => ReduceType::Min,
+            "ReduceProd" => ReduceType::Prod,
+            "ReduceSum" => ReduceType::Sum,
+            "ReduceSumSquare" => ReduceType::SumSquare,
+            _ => unreachable!("unsupported reduce \"{op_type}\""),
+        },
+        axes: Axis::vec_from_args(axes),
+    }))
+}
