@@ -57,8 +57,8 @@ pub struct Blob {
 impl Blob {
     /// 获取数据块的指针。
     #[inline]
-    pub fn get(&self) -> *const u8 {
-        self.data[self.offset..].as_ptr()
+    pub fn get(&self) -> *const () {
+        self.data[self.offset..].as_ptr() as _
     }
 }
 

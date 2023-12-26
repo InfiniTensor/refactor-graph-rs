@@ -1,5 +1,6 @@
-﻿use crate::{Blob, RoutineWorkspace};
+﻿use crate::{uninit_vec, Blob, RoutineWorkspace};
 use graph_topo::GraphTopo;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::alloc::Layout;
 
 pub(crate) fn calculate(
@@ -11,7 +12,11 @@ pub(crate) fn calculate(
     let mut manager = StackManager {
         routines,
         tensors,
-        blobs: vec![Blob::UNINIT; tensors.len()],
+        blobs: {
+            let mut blobs = unsafe { uninit_vec(tensors.len()) };
+            blobs.par_iter_mut().for_each(|blob| *blob = Blob::UNINIT);
+            blobs
+        },
     };
     let stack_len = calculator.calculate(topology, &mut manager);
     (manager.build(topology), stack_len)
@@ -26,7 +31,7 @@ struct StackManager<'a> {
 impl StackManager<'_> {
     fn build(mut self, topology: &GraphTopo) -> Vec<Blob> {
         for i in topology.global_inputs() {
-            self.blobs[i as usize] = Blob::extern_variable();
+            self.blobs[i as usize] = Blob::empty_extern();
         }
         for i in topology.global_outputs() {
             let size = self.tensors[i.0 as usize].0.blob_mem_layout().size();
@@ -37,7 +42,7 @@ impl StackManager<'_> {
                 Blob::OnStack(usize::MAX) => {
                     *blob = Blob::Constant(self.tensors[i].0.blob.as_ref().unwrap().clone());
                 }
-                Blob::OnStack(_) | Blob::Variable(_) => {}
+                Blob::OnStack(_) | Blob::Variable(_) | Blob::Extern(_) => {}
                 Blob::Constant(_) => unreachable!(),
             }
         }
@@ -62,7 +67,7 @@ impl stack_calculator::Manager for StackManager<'_> {
         match self.blobs[i] {
             Blob::OnStack(usize::MAX) => None,
             Blob::OnStack(offset) => Some(offset),
-            Blob::Variable(_) | Blob::Constant(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 

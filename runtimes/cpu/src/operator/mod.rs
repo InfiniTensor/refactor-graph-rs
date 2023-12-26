@@ -1,4 +1,6 @@
-﻿use crate::RoutineWorkspace;
+﻿#![allow(unused_variables)]
+
+use crate::RoutineWorkspace;
 use computation::{Operator, Tensor};
 
 pub(super) fn lower(op: &Operator, inputs: &[&Tensor], outputs: &[&Tensor]) -> RoutineWorkspace {
