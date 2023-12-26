@@ -2,14 +2,22 @@
 //!
 //! 这个 crate 定义了 [`Calculator`] 和 [`Manager`] 两个 trait，用于抽象栈计算的过程。
 //! [`Calculator`] 用于分配栈空间并计算栈的容量需求，[`Manager`] 用于管理栈计算过程中的信息。
+//!
+//! crate 还提供了 2 种预定义的 [`Calculator`] 实现：
+//!
+//! - [`FlatCalculator`]：平铺所有工作空间和张量，不复用空间。
+//! - [`UnidirCalculator`]：单向扩容，最适匹配的计算器，分割满足对齐和容量要求的最小空闲空间进行分配，没有合适的空闲空间时从尾部扩容。
 
 #![deny(warnings, missing_docs)]
 
 mod flat;
+mod unidir;
+
+use graph_topo::GraphTopo;
+use std::alloc::Layout;
 
 pub use flat::FlatCalculator;
-use graph_topo::GraphTopo;
-use std::{alloc::Layout, collections::HashSet};
+pub use unidir::UnidirCalculator;
 
 /// 栈计算器。
 pub trait Calculator {
@@ -25,6 +33,11 @@ pub trait Manager {
     /// `i` 号边需要的栈空间布局。
     fn tensor_layout(&self, i: usize) -> Layout;
 
+    /// 获取 `i` 号边在栈空间的偏移。
+    ///
+    /// 如果这个偏移没有设置过，返回 `None`。
+    fn tensor_offset(&self, i: usize) -> Option<usize>;
+
     /// 设置 `i` 号节点工作空间在栈空间的偏移。
     fn set_workspace_offset(&mut self, i: usize, offset: usize);
 
@@ -35,13 +48,4 @@ pub trait Manager {
 #[inline(always)]
 const fn align(offset: usize, alignment: usize) -> usize {
     (offset + alignment - 1) & !(alignment - 1)
-}
-
-#[inline(always)]
-fn global_outputs_set(topology: &GraphTopo) -> HashSet<usize> {
-    topology
-        .global_outputs()
-        .into_iter()
-        .map(|i| i.0 as usize)
-        .collect()
 }

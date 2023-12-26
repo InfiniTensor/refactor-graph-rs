@@ -58,6 +58,15 @@ impl stack_calculator::Manager for StackManager<'_> {
     }
 
     #[inline]
+    fn tensor_offset(&self, i: usize) -> Option<usize> {
+        match self.blobs[i] {
+            Blob::OnStack(usize::MAX) => None,
+            Blob::OnStack(offset) => Some(offset),
+            Blob::Variable(_) | Blob::Constant(_) => unreachable!(),
+        }
+    }
+
+    #[inline]
     fn set_workspace_offset(&mut self, i: usize, offset: usize) {
         self.routines[i].workspace = offset;
     }

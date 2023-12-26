@@ -117,6 +117,6 @@ impl Blob {
 #[inline(always)]
 unsafe fn uninit_vec<T>(size: usize) -> Vec<T> {
     let mut vec = Vec::with_capacity(size);
-    unsafe { vec.set_len(size) };
+    vec.set_len(size);
     vec
 }

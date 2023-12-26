@@ -95,13 +95,18 @@ impl GraphTopo {
     }
 
     /// 全图输入边集。
-    pub const fn global_inputs(&self) -> Range<ucount> {
-        0..self.global_inputs_len
+    pub const fn global_inputs(&self) -> Range<usize> {
+        0..self.global_inputs_len as _
     }
 
     /// 全图输出边集。
     pub fn global_outputs(&self) -> &[OutputEdge] {
         &self.connections[..self.global_outputs_len as _]
+    }
+
+    /// 图中所有边连接关系。
+    pub fn connections(&self) -> &[OutputEdge] {
+        &self.connections
     }
 }
 

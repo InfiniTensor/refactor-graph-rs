@@ -8,3 +8,4 @@ authors = ["YdrMaster <ydrml@hotmail.com>"]
 
 [dependencies]
 graph-topo = { path = "../graph-topo" }
+bitvec = "1.0"
