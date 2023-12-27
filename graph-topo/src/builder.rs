@@ -1,5 +1,5 @@
 ﻿use super::{
-    container::{Graph, GraphTopo, Node, OutputEdge},
+    container::{Graph, GraphTopo, Node},
     ucount,
 };
 use std::{
@@ -76,7 +76,7 @@ where
                 .add(self.global_outputs.len()),
         );
         // 预留全图输出边的空间
-        connections.resize(self.global_outputs.len(), OutputEdge(ucount::MAX));
+        connections.resize(self.global_outputs.len(), ucount::MAX);
         // not_local 不再改变了
         let not_local = not_local;
 
@@ -116,12 +116,12 @@ where
                     edges.push(self.edges.remove(edge).unwrap_or_default());
                 }
                 // 映射连接
-                connections.extend(inputs.iter().map(|ke| OutputEdge(key_to_idx[ke])));
+                connections.extend(inputs.iter().map(|ke| key_to_idx[ke]));
             }
         }
         // 映射全图输出边
         for (i, edge) in self.global_outputs.iter().enumerate() {
-            connections[i] = OutputEdge(key_to_idx[edge]);
+            connections[i] = key_to_idx[edge];
         }
 
         Graph {

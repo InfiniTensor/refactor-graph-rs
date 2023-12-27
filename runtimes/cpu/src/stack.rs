@@ -3,6 +3,8 @@ use graph_topo::GraphTopo;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::alloc::Layout;
 
+const UNINIT_OFFSET: usize = usize::MAX;
+
 pub(crate) fn calculate(
     topology: &GraphTopo,
     routines: &mut [RoutineWorkspace],
@@ -14,7 +16,9 @@ pub(crate) fn calculate(
         tensors,
         blobs: {
             let mut blobs = unsafe { uninit_vec(tensors.len()) };
-            blobs.par_iter_mut().for_each(|blob| *blob = Blob::UNINIT);
+            blobs
+                .par_iter_mut()
+                .for_each(|blob| *blob = Blob::OnStack(UNINIT_OFFSET));
             blobs
         },
     };
@@ -34,8 +38,8 @@ impl StackManager<'_> {
             self.blobs[i as usize] = Blob::empty_extern();
         }
         for i in topology.global_outputs() {
-            let size = self.tensors[i.0 as usize].0.blob_mem_layout().size();
-            self.blobs[i.0 as usize] = Blob::variable(size);
+            let size = self.tensors[i].0.blob_mem_layout().size();
+            self.blobs[i] = Blob::variable(size);
         }
         for (i, blob) in self.blobs.iter_mut().enumerate() {
             match *blob {
@@ -52,6 +56,11 @@ impl StackManager<'_> {
 
 impl stack_calculator::Manager for StackManager<'_> {
     #[inline]
+    fn tensors_len(&self) -> usize {
+        self.tensors.len()
+    }
+
+    #[inline]
     fn workspace_layout(&self, i: usize) -> Layout {
         const ALIGN: usize = std::mem::align_of::<usize>();
         Layout::from_size_align(self.routines[i].workspace, ALIGN).unwrap()
@@ -65,7 +74,7 @@ impl stack_calculator::Manager for StackManager<'_> {
     #[inline]
     fn tensor_offset(&self, i: usize) -> Option<usize> {
         match self.blobs[i] {
-            Blob::OnStack(usize::MAX) => None,
+            Blob::OnStack(UNINIT_OFFSET) => None,
             Blob::OnStack(offset) => Some(offset),
             _ => unreachable!(),
         }

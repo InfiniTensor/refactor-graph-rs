@@ -1,6 +1,5 @@
 ﻿use crate::{align, Calculator};
-use bitvec::vec::BitVec;
-use std::alloc::Layout;
+use std::{alloc::Layout, collections::HashSet};
 
 /// 平铺对象的栈计算器。
 pub struct FlatCalculator;
@@ -11,25 +10,12 @@ impl Calculator for FlatCalculator {
         topology: &graph_topo::GraphTopo,
         manager: &mut impl crate::Manager,
     ) -> usize {
-        let flags = {
-            let mut flags = BitVec::<usize>::new();
-            for i in topology.connections() {
-                let i = i.0 as usize;
-                if i >= flags.len() {
-                    flags.resize(i + 1, false);
-                }
-                flags.set(i, true);
-            }
-            for i in topology.global_outputs() {
-                flags.set(i.0 as usize, false);
-            }
-            flags
-        };
+        let global_outputs = HashSet::<usize>::from_iter(topology.global_outputs().into_iter());
 
         let mut ans = 0;
         for (i, _inputs, outputs) in topology {
             for i in outputs {
-                if flags[i] {
+                if !global_outputs.contains(&i) {
                     manager.set_tensor_offset(i, put_obj(&mut ans, manager.tensor_layout(i)));
                 }
             }

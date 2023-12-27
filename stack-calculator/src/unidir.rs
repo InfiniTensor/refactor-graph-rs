@@ -15,23 +15,23 @@ impl Calculator for UnidirCalculator {
         topology: &graph_topo::GraphTopo,
         manager: &mut impl crate::Manager,
     ) -> usize {
-        let mut rc = Vec::<usize>::new();
+        #[allow(non_camel_case_types)]
+        type urc = u16;
+        const OUTPUT: urc = urc::MAX;
+
+        let mut rc: Vec<urc> = vec![0; manager.tensors_len()];
         for i in topology.connections() {
-            let i = i.0 as usize;
-            if i >= rc.len() {
-                rc.resize(i + 1, 0);
-            }
             rc[i] += 1;
         }
         for i in topology.global_outputs() {
-            rc[i.0 as usize] = 0;
+            rc[i] = OUTPUT;
         }
 
         let mut rt_cal = RealtimeCalculator::default();
         for (i, inputs, outputs) in topology {
-            for i in outputs {
-                if rc[i] > 0 {
-                    manager.set_tensor_offset(i, rt_cal.alloc(manager.tensor_layout(i)).start);
+            for i in outputs.clone() {
+                if rc[i] != OUTPUT {
+                    manager.set_tensor_offset(i, rt_cal.alloc(manager.tensor_layout(i)).start)
                 }
             }
             {
@@ -39,8 +39,13 @@ impl Calculator for UnidirCalculator {
                 manager.set_workspace_offset(i, workspace.start);
                 rt_cal.free(workspace);
             }
+            for i in outputs {
+                if rc[i] == 0 {
+                    let offset = manager.tensor_offset(i).unwrap();
+                    rt_cal.free(offset..offset + manager.tensor_layout(i).size());
+                }
+            }
             for i in inputs {
-                let i = i.0 as usize;
                 let rc = &mut rc[i];
                 debug_assert_ne!(*rc, 0);
                 *rc -= 1;

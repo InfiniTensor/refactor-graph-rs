@@ -27,6 +27,9 @@ pub trait Calculator {
 
 /// 栈计算管理器。
 pub trait Manager {
+    /// 获取张量的数量。
+    fn tensors_len(&self) -> usize;
+
     /// `i` 号节点需要的工作空间布局。
     fn workspace_layout(&self, i: usize) -> Layout;
 

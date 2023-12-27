@@ -20,7 +20,7 @@ mod container;
 #[allow(non_camel_case_types)]
 pub type ucount = u32;
 pub use builder::Builder;
-pub use container::{Graph, GraphTopo, Iter, OutputEdge};
+pub use container::{EdgeIndices, Graph, GraphTopo, Iter};
 
 #[test]
 fn test() {
@@ -88,18 +88,7 @@ fn test() {
     //       edges | a | b | c | d | e | f | z
     // connections | z | a | b | d | e | f | c
     assert_eq!(edges, vec!["|0", "|1", "", "", "|4", "", "!"]);
-    assert_eq!(
-        topology.connections,
-        vec![
-            OutputEdge(6),
-            OutputEdge(0),
-            OutputEdge(1),
-            OutputEdge(3),
-            OutputEdge(4),
-            OutputEdge(5),
-            OutputEdge(2),
-        ]
-    );
+    assert_eq!(topology.connections, vec![6, 0, 1, 3, 4, 5, 2,]);
 
     // assert api -----------------------------------
     assert_eq!(topology.nodes_len(), 3);
@@ -107,19 +96,19 @@ fn test() {
     assert_eq!(topology.global_inputs_len(), 1);
     assert_eq!(topology.global_outputs_len(), 1);
     assert_eq!(topology.global_inputs(), 0..1);
-    assert_eq!(topology.global_outputs(), &[OutputEdge(6)]);
+    assert_eq!(&*topology.global_outputs(), &[6]);
     for (i, inputs, outputs) in topology.into_iter() {
         match i {
             0 => {
-                assert_eq!(inputs, &[OutputEdge(0), OutputEdge(1)]);
+                assert_eq!(&*inputs, &[0, 1]);
                 assert_eq!(outputs, 2..4);
             }
             1 => {
-                assert_eq!(inputs, &[OutputEdge(3), OutputEdge(4)]);
+                assert_eq!(&*inputs, &[3, 4]);
                 assert_eq!(outputs, 5..6);
             }
             2 => {
-                assert_eq!(inputs, &[OutputEdge(5), OutputEdge(2)]);
+                assert_eq!(&*inputs, &[5, 2]);
                 assert_eq!(outputs, 6..7);
             }
             _ => unreachable!(),

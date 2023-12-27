@@ -5,7 +5,6 @@
 mod operator;
 mod stack;
 
-use graph_topo::OutputEdge;
 use operator::lower;
 use rayon::prelude::*;
 use stack_calculator::Calculator;
@@ -37,12 +36,8 @@ impl Graph {
             .into_par_iter()
             .map(|(node_idx, inputs, outputs)| {
                 let mut tensors = Vec::with_capacity(inputs.len() + outputs.len());
-                for &OutputEdge(i) in inputs {
-                    tensors.push(&src.edges[i as usize].0);
-                }
-                for i in outputs {
-                    tensors.push(&src.edges[i].0);
-                }
+                tensors.extend(inputs.clone().into_iter().map(|i| &src.edges[i].0));
+                tensors.extend(outputs.into_iter().map(|i| &src.edges[i].0));
                 let (inputs, outputs) = tensors.split_at(inputs.len());
                 lower(&src.nodes[node_idx].0, inputs, outputs)
             })
@@ -70,7 +65,7 @@ impl Graph {
             i.extend(
                 inputs
                     .into_iter()
-                    .map(|t| self.graph.edges[t.0 as usize].as_ptr(stack)),
+                    .map(|t| self.graph.edges[t].as_ptr(stack)),
             );
             o.extend(
                 outputs
@@ -131,8 +126,6 @@ enum Blob {
 }
 
 impl Blob {
-    const UNINIT: Self = Self::OnStack(usize::MAX);
-
     #[inline]
     fn variable(size: usize) -> Self {
         Self::Variable(Box::new(Variable::new(size)))
