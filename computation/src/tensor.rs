@@ -34,7 +34,7 @@ impl fmt::Display for Tensor {
             return Ok(());
         };
         write!(f, "<{first}")?;
-        while let Some(d) = shape.next() {
+        for d in shape {
             write!(f, "x{d}")?;
         }
         match self.layout {

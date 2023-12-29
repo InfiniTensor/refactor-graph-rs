@@ -35,7 +35,7 @@ struct StackManager<'a> {
 impl StackManager<'_> {
     fn build(mut self, topology: &GraphTopo) -> Vec<Blob> {
         for i in topology.global_inputs() {
-            self.blobs[i as usize] = Blob::empty_extern();
+            self.blobs[i] = Blob::empty_extern();
         }
         for i in topology.global_outputs() {
             let size = self.tensors[i].0.blob_mem_layout().size();

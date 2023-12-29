@@ -48,12 +48,12 @@ impl fmt::Display for Graph {
     }
 }
 
+type OpAndName = (Operator, String);
+type InputAndOutput = (Vec<usize>, Vec<usize>);
+
 fn parse_operators(
     lines: &mut Lines<'_>,
-) -> (
-    HashMap<usize, (Operator, String)>,
-    HashMap<usize, (Vec<usize>, Vec<usize>)>,
-) {
+) -> (HashMap<usize, OpAndName>, HashMap<usize, InputAndOutput>) {
     let mut nodes = HashMap::new();
     let mut topology = HashMap::new();
     for i in 0usize.. {
@@ -95,8 +95,8 @@ fn parse_global(lines: &mut Lines<'_>) -> (Vec<usize>, Vec<usize>) {
 fn parse_tensors(lines: &mut Lines<'_>, data: Vec<u8>) -> Vec<(Tensor, String)> {
     let data = Arc::new(data);
     let mut edges = Vec::new();
-    while let Some(line) = lines.next() {
-        let mut line = line.trim().split_whitespace();
+    for line in lines {
+        let mut line = line.split_whitespace();
 
         let i = line
             .next()
@@ -159,7 +159,7 @@ fn parse_topo(line: &str) -> (Vec<usize>, Vec<usize>) {
             num => outputs.push(num.trim_start_matches('%').parse().unwrap()),
         }
     }
-    while let Some(num) = line.next() {
+    for num in line {
         inputs.push(num.trim_start_matches('%').parse().unwrap());
     }
 

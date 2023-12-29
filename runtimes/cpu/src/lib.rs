@@ -70,7 +70,7 @@ impl Graph {
             o.extend(
                 outputs
                     .into_iter()
-                    .map(|t| self.graph.edges[t as usize].as_mut_ptr(stack)),
+                    .map(|t| self.graph.edges[t].as_mut_ptr(stack)),
             );
             routine.run(workspace, &i, &o);
             i.clear();
@@ -160,6 +160,7 @@ impl Blob {
 #[inline(always)]
 unsafe fn uninit_vec<T>(size: usize) -> Vec<T> {
     let mut vec = Vec::with_capacity(size);
+    #[allow(clippy::uninit_vec)]
     vec.set_len(size);
     vec
 }

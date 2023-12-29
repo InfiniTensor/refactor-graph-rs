@@ -86,7 +86,7 @@ where
         while mapped.len() < self.topology.len() {
             for (kn, (inputs, outputs)) in &self.topology {
                 // 过滤映射过的节点
-                if mapped.contains(&kn) {
+                if mapped.contains(kn) {
                     continue;
                 }
                 // 发现新局部边

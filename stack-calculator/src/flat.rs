@@ -10,7 +10,7 @@ impl Calculator for FlatCalculator {
         topology: &graph_topo::GraphTopo,
         manager: &mut impl crate::Manager,
     ) -> usize {
-        let global_outputs = HashSet::<usize>::from_iter(topology.global_outputs().into_iter());
+        let global_outputs = HashSet::<usize>::from_iter(topology.global_outputs());
 
         let mut ans = 0;
         for (i, _inputs, outputs) in topology {

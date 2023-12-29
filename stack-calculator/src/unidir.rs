@@ -79,8 +79,7 @@ impl RealtimeCalculator {
         if let Some(&HeadTail(Range { start, end })) = self
             .free_headtails
             .range(HeadTail(0..obj.size())..)
-            .filter(|&HeadTail(r)| r.end - align(r.start, obj.align()) >= obj.size())
-            .next()
+            .find(|&HeadTail(r)| r.end - align(r.start, obj.align()) >= obj.size())
         {
             self.free_headtails.remove(&HeadTail(start..end));
             self.free_head_tail.remove(&start);
@@ -153,19 +152,16 @@ struct HeadTail(Range<usize>);
 impl PartialOrd for HeadTail {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0
-            .len()
-            .partial_cmp(&other.0.len())
-            .or_else(|| self.0.start.partial_cmp(&other.0.start))
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for HeadTail {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0
-            .len()
-            .partial_cmp(&other.0.len())
-            .unwrap_or_else(|| self.0.start.cmp(&other.0.start))
+        match self.0.len().cmp(&other.0.len()) {
+            Ordering::Equal => self.0.start.cmp(&other.0.start),
+            otherwise => otherwise,
+        }
     }
 }
