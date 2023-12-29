@@ -1,13 +1,18 @@
 ﻿fn main() {
     use std::{env, path::PathBuf};
 
+    let Some(cuda_root) = find_cuda_helper::find_cuda_root() else {
+        return;
+    };
+
+    println!("cargo:rustc-cfg=detected_cuda");
+
     // Tell cargo to tell rustc to link the cuda library.
     find_cuda_helper::include_cuda();
 
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=wrapper.h");
 
-    let cuda_root = find_cuda_helper::find_cuda_root().expect("cuda toolkit not found");
     // The bindgen::Builder is the main entry point to bindgen,
     // and lets you build up options for the resulting bindings.
     let bindings = bindgen::Builder::default()
