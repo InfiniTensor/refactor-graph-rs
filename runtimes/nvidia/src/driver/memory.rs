@@ -1,4 +1,4 @@
-﻿use crate::{
+﻿use super::{
     bindings as cuda,
     context::{Context, ContextGuard},
 };
@@ -53,9 +53,8 @@ impl Drop for Blob {
 
 impl Blob {
     pub fn zero(&mut self) {
-        self.ctx.apply(|_| {
-            cuda::invoke!(cuMemsetD8_v2(self.ptr, 0, self.len));
-        });
+        self.ctx
+            .apply(|_| cuda::invoke!(cuMemsetD8_v2(self.ptr, 0, self.len)));
     }
 
     pub fn d2h_cpy<T>(&self) -> Vec<T> {
@@ -68,16 +67,15 @@ impl Blob {
             };
             vec
         };
-        self.ctx.apply(|_| {
-            cuda::invoke!(cuMemcpyDtoH_v2(host.as_mut_ptr() as _, self.ptr, self.len));
-        });
+        self.ctx
+            .apply(|_| cuda::invoke!(cuMemcpyDtoH_v2(host.as_mut_ptr() as _, self.ptr, self.len)));
         host
     }
 }
 
 #[test]
 fn test_memcpy() {
-    for dev in crate::device::devices() {
+    for dev in super::device::devices() {
         let ctx = dev.context();
 
         let mut blob = ctx.apply(|ctx| ctx.malloc(1024));

@@ -1,4 +1,4 @@
-﻿use crate::bindings as cuda;
+﻿use super::bindings as cuda;
 use std::{sync::OnceLock, vec::Vec};
 
 pub(crate) fn devices() -> &'static Vec<Device> {

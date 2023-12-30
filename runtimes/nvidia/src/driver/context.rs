@@ -1,4 +1,4 @@
-﻿use crate::{bindings as cuda, device::Device};
+﻿use super::{bindings as cuda, device::Device};
 use std::{ptr::null_mut, sync::Arc};
 
 #[repr(transparent)]
@@ -10,7 +10,7 @@ unsafe impl Sync for Context {}
 impl Device {
     #[inline]
     pub fn context(&self) -> Arc<Context> {
-        let mut context: CUcontext = null_mut();
+        let mut context: cuda::CUcontext = null_mut();
         cuda::invoke!(cuCtxCreate_v2(&mut context, 0, self.index));
         cuda::invoke!(cuCtxPopCurrent_v2(null_mut()));
         Arc::new(Context(context))
@@ -27,8 +27,7 @@ impl Drop for Context {
 impl Context {
     #[inline]
     pub fn apply<T>(self: &Arc<Self>, f: impl FnOnce(&ContextGuard<'_>) -> T) -> T {
-        let guard = self.push();
-        f(&guard)
+        f(&self.push())
     }
 }
 
@@ -45,7 +44,7 @@ impl Context {
 impl Drop for ContextGuard<'_> {
     #[inline]
     fn drop(&mut self) {
-        let mut top: CUcontext = null_mut();
+        let mut top: cuda::CUcontext = null_mut();
         cuda::invoke!(cuCtxPopCurrent_v2(&mut top));
         debug_assert_eq!(top, self.0 .0)
     }
