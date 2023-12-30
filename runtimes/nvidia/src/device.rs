@@ -1,7 +1,7 @@
 ﻿use crate::bindings as cuda;
 use std::{sync::OnceLock, vec::Vec};
 
-pub fn devices() -> &'static Vec<Device> {
+pub(crate) fn devices() -> &'static Vec<Device> {
     static MANAGER: OnceLock<Vec<Device>> = OnceLock::new();
     MANAGER.get_or_init(|| {
         cuda::invoke!(cuInit(0));
@@ -13,7 +13,7 @@ pub fn devices() -> &'static Vec<Device> {
     })
 }
 
-pub struct Device {
+pub(crate) struct Device {
     pub index: i32,
     pub capability: (i32, i32),
     pub total_memory: usize,
@@ -39,7 +39,6 @@ impl Device {
 
         let mut bytes = 0usize;
         cuda::invoke!(cuDeviceTotalMem_v2(&mut bytes, device));
-
         Self {
             index,
             capability: (major, minor),
