@@ -10,19 +10,28 @@
 
 #![deny(warnings, missing_docs)]
 
-mod flat;
-mod unidir;
+pub mod flat;
+pub mod unidir;
 
 use graph_topo::GraphTopo;
-use std::alloc::Layout;
-
-pub use flat::FlatCalculator;
-pub use unidir::UnidirCalculator;
+use std::{alloc::Layout, ops::Range};
 
 /// 栈计算器。
 pub trait Calculator {
     /// 与 `manager` 交互，根据给定的图拓扑计算每个对象在栈上的偏移并返回栈容量需求。
     fn calculate(self, topology: &GraphTopo, manager: &mut impl Manager) -> usize;
+}
+
+/// 实时栈计算器。
+pub trait RealtimeCalculator {
+    /// 分配满足 `obj` 要求的空间。
+    fn alloc(&mut self, obj: Layout) -> Range<usize>;
+
+    /// 释放 `range` 范围内的空间。
+    fn free(&mut self, range: Range<usize>);
+
+    /// 获取栈空间的历史峰值。
+    fn peak(&self) -> usize;
 }
 
 /// 栈计算管理器。

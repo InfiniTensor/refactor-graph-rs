@@ -14,10 +14,10 @@ impl Drop for Graph {
 }
 
 impl Graph {
-    pub fn new(&self) -> Graph {
+    pub fn new() -> Self {
         let mut graph: cuda::CUgraph = null_mut();
         cuda::invoke!(cuGraphCreate(&mut graph, 0));
-        Graph {
+        Self {
             graph,
             first_node: null_mut(),
             last_node: null_mut(),
@@ -140,12 +140,13 @@ fn params_memcpy3d(
     len: usize,
     ty: MemcpyType,
 ) -> cuda::CUDA_MEMCPY3D {
+    use cuda::CUmemorytype::*;
     let mut ans = cuda::CUDA_MEMCPY3D {
         srcXInBytes: 0,
         srcY: 0,
         srcZ: 0,
         srcLOD: 0,
-        srcMemoryType: cuda::CUmemorytype_enum::CU_MEMORYTYPE_DEVICE,
+        srcMemoryType: CU_MEMORYTYPE_DEVICE,
         srcHost: null_mut(),
         srcDevice: 0,
         srcArray: null_mut(),
@@ -156,7 +157,7 @@ fn params_memcpy3d(
         dstY: 0,
         dstZ: 0,
         dstLOD: 0,
-        dstMemoryType: cuda::CUmemorytype_enum::CU_MEMORYTYPE_DEVICE,
+        dstMemoryType: CU_MEMORYTYPE_DEVICE,
         dstHost: null_mut(),
         dstDevice: 0,
         dstArray: null_mut(),
@@ -173,19 +174,19 @@ fn params_memcpy3d(
             ans.dstDevice = dst as _;
         }
         MemcpyType::H2H => {
-            ans.srcMemoryType = cuda::CUmemorytype_enum::CU_MEMORYTYPE_HOST;
+            ans.srcMemoryType = CU_MEMORYTYPE_HOST;
             ans.srcHost = src as _;
-            ans.dstMemoryType = cuda::CUmemorytype_enum::CU_MEMORYTYPE_HOST;
+            ans.dstMemoryType = CU_MEMORYTYPE_HOST;
             ans.dstHost = dst as _;
         }
         MemcpyType::H2D => {
-            ans.srcMemoryType = cuda::CUmemorytype_enum::CU_MEMORYTYPE_HOST;
+            ans.srcMemoryType = CU_MEMORYTYPE_HOST;
             ans.srcHost = src as _;
             ans.dstDevice = dst as _;
         }
         MemcpyType::D2H => {
             ans.srcDevice = src as _;
-            ans.dstMemoryType = cuda::CUmemorytype_enum::CU_MEMORYTYPE_HOST;
+            ans.dstMemoryType = CU_MEMORYTYPE_HOST;
             ans.dstHost = dst as _;
         }
     };

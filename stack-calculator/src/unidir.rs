@@ -1,4 +1,6 @@
-﻿use crate::{align, Calculator};
+﻿//! 单向扩容的栈计算器，包括一个实时的版本和一个非实时的版本。
+
+use crate::RealtimeCalculator as _;
 use std::{
     alloc::Layout,
     cmp::Ordering,
@@ -7,9 +9,9 @@ use std::{
 };
 
 /// 单向扩容的栈计算器。
-pub struct UnidirCalculator;
+pub struct Calculator;
 
-impl Calculator for UnidirCalculator {
+impl crate::Calculator for Calculator {
     fn calculate(
         self,
         topology: &graph_topo::GraphTopo,
@@ -59,8 +61,9 @@ impl Calculator for UnidirCalculator {
     }
 }
 
+/// 实时的单向扩容栈计算器。
 #[derive(Default, Debug)]
-struct RealtimeCalculator {
+pub struct RealtimeCalculator {
     used: usize,
     peak: usize,
 
@@ -69,7 +72,7 @@ struct RealtimeCalculator {
     free_tail_head: HashMap<usize, usize>,
 }
 
-impl RealtimeCalculator {
+impl crate::RealtimeCalculator for RealtimeCalculator {
     fn alloc(&mut self, obj: Layout) -> Range<usize> {
         if obj.size() == 0 {
             return 0..0;
@@ -79,7 +82,7 @@ impl RealtimeCalculator {
         if let Some(&HeadTail(Range { start, end })) = self
             .free_headtails
             .range(HeadTail(0..obj.size())..)
-            .find(|&HeadTail(r)| r.end - align(r.start, obj.align()) >= obj.size())
+            .find(|&HeadTail(r)| r.end - crate::align(r.start, obj.align()) >= obj.size())
         {
             self.free_headtails.remove(&HeadTail(start..end));
             self.free_head_tail.remove(&start);
@@ -126,10 +129,12 @@ impl RealtimeCalculator {
     }
 
     #[inline]
-    const fn peak(&self) -> usize {
+    fn peak(&self) -> usize {
         self.peak
     }
+}
 
+impl RealtimeCalculator {
     #[inline]
     fn insert(&mut self, start: usize, end: usize) {
         if end > start {
@@ -141,7 +146,7 @@ impl RealtimeCalculator {
 
     #[inline(always)]
     const fn head_tail(start: usize, obj: Layout) -> (usize, usize) {
-        let head = align(start, obj.align());
+        let head = crate::align(start, obj.align());
         (head, head + obj.size())
     }
 }

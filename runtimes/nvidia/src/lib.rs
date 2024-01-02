@@ -2,7 +2,7 @@
 
 #![cfg(detected_cuda)]
 
-use graph_topo::GraphTopo;
-
 mod driver;
 mod graph;
+
+pub use graph::Graph;
