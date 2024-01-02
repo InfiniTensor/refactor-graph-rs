@@ -1,9 +1,16 @@
 ﻿use super::{
     bindings as cuda,
     context::{Context, ContextGuard},
+    AsRaw, WithCtx,
 };
-use std::{alloc::Layout, ffi::c_void, ptr::NonNull, sync::Arc};
+use std::{
+    alloc::Layout,
+    ffi::c_void,
+    ptr::{null_mut, NonNull},
+    sync::Arc,
+};
 
+#[derive(Debug)]
 pub struct Blob {
     ctx: Arc<Context>,
     ptr: cuda::CUdeviceptr,
@@ -51,6 +58,20 @@ impl Drop for Blob {
     }
 }
 
+impl AsRaw<cuda::CUdeviceptr> for Blob {
+    #[inline]
+    unsafe fn as_raw(&self) -> cuda::CUdeviceptr {
+        self.ptr
+    }
+}
+
+impl WithCtx for Blob {
+    #[inline]
+    unsafe fn ctx(&self) -> cuda::CUcontext {
+        self.ctx.as_raw()
+    }
+}
+
 impl Blob {
     pub fn zero(&mut self) {
         self.ctx
@@ -90,5 +111,38 @@ fn test_memcpy() {
         let vec = blob.d2h_cpy::<u32>();
         assert_eq!(vec[0], 1);
         assert_eq!(vec[1024 / 4 - 1], 2);
+
+        let mut vec_ = vec![0u32; vec.len()];
+        ctx.apply(|_| {
+            let params = cuda::CUDA_MEMCPY3D {
+                srcXInBytes: 0,
+                srcY: 0,
+                srcZ: 0,
+                srcLOD: 0,
+                srcMemoryType: cuda::CUmemorytype_enum::CU_MEMORYTYPE_DEVICE,
+                srcHost: null_mut(),
+                srcDevice: blob.ptr,
+                srcArray: null_mut(),
+                reserved0: null_mut(),
+                srcPitch: 0,
+                srcHeight: 0,
+                dstXInBytes: 0,
+                dstY: 0,
+                dstZ: 0,
+                dstLOD: 0,
+                dstMemoryType: cuda::CUmemorytype_enum::CU_MEMORYTYPE_HOST,
+                dstHost: vec_.as_mut_ptr() as _,
+                dstDevice: 0,
+                dstArray: null_mut(),
+                reserved1: null_mut(),
+                dstPitch: 0,
+                dstHeight: 0,
+                WidthInBytes: blob.len,
+                Height: 1,
+                Depth: 1,
+            };
+            cuda::invoke!(cuMemcpy3D_v2(&params))
+        });
+        assert_eq!(vec, vec_);
     }
 }

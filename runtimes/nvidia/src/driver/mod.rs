@@ -12,7 +12,7 @@
         }};
     }
 
-    pub(crate) use invoke;
+    pub(super) use invoke;
 }
 
 mod context;
@@ -20,3 +20,15 @@ mod device;
 mod graph;
 mod memory;
 mod stream;
+
+trait AsRaw<T> {
+    unsafe fn as_raw(&self) -> T;
+}
+
+trait WithCtx {
+    unsafe fn ctx(&self) -> bindings::CUcontext;
+}
+
+pub(crate) use graph::Graph;
+pub(crate) use memory::Blob;
+pub(crate) use stream::Stream;

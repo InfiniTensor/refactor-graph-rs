@@ -1,6 +1,7 @@
-﻿use super::{bindings as cuda, device::Device};
+﻿use super::{bindings as cuda, device::Device, AsRaw};
 use std::{ptr::null_mut, sync::Arc};
 
+#[derive(PartialEq, Eq, Debug)]
 #[repr(transparent)]
 pub(crate) struct Context(cuda::CUcontext);
 
@@ -21,6 +22,13 @@ impl Drop for Context {
     #[inline]
     fn drop(&mut self) {
         cuda::invoke!(cuCtxDestroy_v2(self.0));
+    }
+}
+
+impl AsRaw<cuda::CUcontext> for Context {
+    #[inline]
+    unsafe fn as_raw(&self) -> cuda::CUcontext {
+        self.0
     }
 }
 
