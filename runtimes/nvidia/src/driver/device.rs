@@ -4,7 +4,7 @@ use std::{sync::OnceLock, vec::Vec};
 pub(crate) fn devices() -> &'static Vec<Device> {
     static MANAGER: OnceLock<Vec<Device>> = OnceLock::new();
     MANAGER.get_or_init(|| {
-        cuda::invoke!(cuInit(0));
+        cuda::init();
 
         let mut device_count = 0i32;
         cuda::invoke!(cuDeviceGetCount(&mut device_count));

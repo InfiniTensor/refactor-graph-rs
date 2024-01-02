@@ -238,7 +238,7 @@ fn test_memcpy3d() {
 /// 测试 cuda graph 与 context 的交互行为。
 #[test]
 fn test_graph_exec() {
-    cuda::invoke!(cuInit(0));
+    cuda::init();
 
     // 创建 cuda graph 不需要 context。
     let mut graph: cuda::CUgraph = null_mut();
