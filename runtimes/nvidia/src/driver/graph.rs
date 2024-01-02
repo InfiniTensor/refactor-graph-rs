@@ -1,45 +1,36 @@
-﻿use super::{
-    bindings as cuda,
-    context::{Context, ContextGuard},
-    stream::Stream,
-    AsRaw, WithCtx,
-};
-use std::{ffi::c_void, ptr::null_mut, sync::Arc};
+﻿use super::{bindings as cuda, context::ContextGuard, stream::Stream, AsRaw};
+use std::{ffi::c_void, ptr::null_mut};
 
 pub(crate) struct Graph {
-    ctx: Arc<Context>,
     graph: cuda::CUgraph,
     first_node: cuda::CUgraphNode,
     last_node: cuda::CUgraphNode,
 }
 
-impl ContextGuard<'_> {
-    pub fn graph(&self) -> Graph {
+impl Drop for Graph {
+    fn drop(&mut self) {
+        cuda::invoke!(cuGraphDestroy(self.graph));
+    }
+}
+
+impl Graph {
+    pub fn new(&self) -> Graph {
         let mut graph: cuda::CUgraph = null_mut();
         cuda::invoke!(cuGraphCreate(&mut graph, 0));
         Graph {
-            ctx: self.clone_ctx(),
             graph,
             first_node: null_mut(),
             last_node: null_mut(),
         }
     }
-}
 
-impl Drop for Graph {
-    fn drop(&mut self) {
-        self.ctx
-            .apply(|_| cuda::invoke!(cuGraphDestroy(self.graph)));
-    }
-}
-
-impl Graph {
     pub fn push_memcpy(
         &mut self,
         dst: *mut c_void,
         src: *const c_void,
         len: usize,
         ty: MemcpyType,
+        ctx: cuda::CUcontext,
     ) {
         let last_node = self.replace_last();
         let deps = Self::as_deps(&last_node);
@@ -49,7 +40,7 @@ impl Graph {
             deps.as_ptr(),
             deps.len(),
             &params_memcpy3d(dst, src as _, len, ty),
-            self.ctx.as_raw()
+            ctx,
         ))
     }
 
@@ -60,6 +51,7 @@ impl Graph {
         kernel: cuda::CUfunction,
         params: *mut *mut c_void,
         shared_mem_bytes: u32,
+        ctx: cuda::CUcontext,
     ) {
         let last_node = self.replace_last();
         let deps = Self::as_deps(&last_node);
@@ -80,7 +72,7 @@ impl Graph {
                 kernelParams: params,
                 extra: null_mut(),
                 kern: null_mut(),
-                ctx: self.ctx.as_raw()
+                ctx
             }
         ))
     }
@@ -104,42 +96,33 @@ impl Graph {
     }
 }
 
-pub(crate) struct ExecutableGraph {
-    ctx: Arc<Context>,
-    graph: cuda::CUgraphExec,
-}
+pub(crate) struct ExecutableGraph(cuda::CUgraphExec);
 
 impl Graph {
-    pub fn instantiate(&self) -> ExecutableGraph {
+    #[inline]
+    pub fn instantiate(&self, _: &ContextGuard) -> ExecutableGraph {
         let mut graph: cuda::CUgraphExec = null_mut();
-        self.ctx
-            .apply(|_| cuda::invoke!(cuGraphInstantiateWithFlags(&mut graph, self.graph, 0)));
-        ExecutableGraph {
-            ctx: self.ctx.clone(),
-            graph,
-        }
+        cuda::invoke!(cuGraphInstantiateWithFlags(&mut graph, self.graph, 0));
+        ExecutableGraph(graph)
     }
 }
 
 impl Drop for ExecutableGraph {
-    fn drop(&mut self) {
-        self.ctx
-            .apply(|_| cuda::invoke!(cuGraphExecDestroy(self.graph)));
-    }
-}
-
-impl WithCtx for ExecutableGraph {
     #[inline]
-    unsafe fn ctx(&self) -> cuda::CUcontext {
-        self.ctx.as_raw()
+    fn drop(&mut self) {
+        cuda::invoke!(cuGraphExecDestroy(self.0));
     }
 }
 
 impl ExecutableGraph {
-    pub fn launch_on(&self, stream: Stream) {
-        unsafe { debug_assert_eq!(self.ctx(), stream.ctx()) };
-        self.ctx
-            .apply(|_| cuda::invoke!(cuGraphLaunch(self.graph, stream.as_raw())));
+    /// 在 `stream` 上启动图。
+    ///
+    /// # Safety
+    ///
+    /// `stream` 所在的上下文与图中节点的上下文必须有正确的关系。
+    #[inline]
+    pub unsafe fn launch_on(&self, stream: &Stream) {
+        cuda::invoke!(cuGraphLaunch(self.0, stream.as_raw()));
     }
 }
 
@@ -150,6 +133,7 @@ pub enum MemcpyType {
     D2D,
 }
 
+/// 构造一个表示 `memcpy(dst, src, len, ty)` 的 [`CUDA_MEMCPY3D`](cuda::CUDA_MEMCPY3D)。
 fn params_memcpy3d(
     dst: *mut c_void,
     src: cuda::CUdeviceptr,
@@ -208,10 +192,14 @@ fn params_memcpy3d(
     ans
 }
 
+/// 测试 [`params_memcpy3d`] 构造的 [`cuMemcpy3D`](cuda::cuMemcpy3D_v2) 参数。
 #[test]
 fn test_memcpy3d() {
+    type TY = usize;
+    const LEN: usize = 1024;
+
     for dev in super::device::devices() {
-        let size = std::alloc::Layout::array::<usize>(1024).unwrap().size();
+        let size = std::alloc::Layout::array::<TY>(LEN).unwrap().size();
         dev.context().apply(|_| {
             let mut dev: cuda::CUdeviceptr = 0;
             let mut host = null_mut();
@@ -221,7 +209,7 @@ fn test_memcpy3d() {
             cuda::invoke!(cuMemHostAlloc(&mut host, size, 0));
             cuda::invoke!(cuMemHostAlloc(&mut ans, size, 0));
 
-            unsafe { std::slice::from_raw_parts_mut(host as *mut usize, 1024) }
+            unsafe { std::slice::from_raw_parts_mut(host as *mut TY, LEN) }
                 .iter_mut()
                 .enumerate()
                 .for_each(|(i, x)| *x = i);
@@ -235,8 +223,8 @@ fn test_memcpy3d() {
             )));
 
             assert_eq!(
-                unsafe { std::slice::from_raw_parts(host as *mut usize, 1024) },
-                unsafe { std::slice::from_raw_parts(ans as *mut usize, 1024) }
+                unsafe { std::slice::from_raw_parts(host as *mut TY, LEN) },
+                unsafe { std::slice::from_raw_parts(ans as *mut TY, LEN) }
             );
 
             cuda::invoke!(cuMemFree_v2(dev));
@@ -244,4 +232,47 @@ fn test_memcpy3d() {
             cuda::invoke!(cuMemFreeHost(ans));
         });
     }
+}
+
+/// 测试 cuda graph 与 context 的交互行为。
+#[test]
+fn test_graph_exec() {
+    cuda::invoke!(cuInit(0));
+
+    // 创建 cuda graph 不需要 context。
+    let mut graph: cuda::CUgraph = null_mut();
+    cuda::invoke!(cuGraphCreate(&mut graph, 0));
+
+    if let Some(dev) = super::device::devices().iter().next() {
+        let mut ctx0: cuda::CUcontext = null_mut();
+        let mut ctx1: cuda::CUcontext = null_mut();
+
+        // 创建 cuda graph exec 需要 context。
+        let mut execuable: cuda::CUgraphExec = null_mut();
+        dev.context().apply(|ctx| {
+            cuda::invoke!(cuGraphInstantiateWithFlags(&mut execuable, graph, 0));
+            ctx0 = unsafe { ctx.as_raw() };
+        });
+        // 创建 cuda graph exec 的上下文不需要维持生命周期。
+
+        // 执行 cuda graph exec 需要 context。
+        dev.context().apply(|ctx| {
+            let mut stream: cuda::CUstream = null_mut();
+            cuda::invoke!(cuStreamCreate(&mut stream, 0));
+
+            cuda::invoke!(cuGraphLaunch(execuable, stream));
+            cuda::invoke!(cuStreamSynchronize(stream));
+
+            cuda::invoke!(cuStreamDestroy_v2(stream));
+            ctx1 = unsafe { ctx.as_raw() };
+        });
+        // 销毁 cuda graph exec 不需要 context。
+        cuda::invoke!(cuGraphExecDestroy(execuable));
+
+        // 创建 cuda graph exec 与执行 cuda graph exec 的 context 不需要相同。
+        assert_ne!(ctx0, ctx1);
+    }
+
+    // 销毁 cuda graph 不需要 context。
+    cuda::invoke!(cuGraphDestroy(graph));
 }

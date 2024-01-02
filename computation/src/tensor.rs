@@ -24,7 +24,7 @@ impl Tensor {
 }
 
 impl fmt::Display for Tensor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.blob.is_some() {
             f.write_str("(*) ")?;
         }

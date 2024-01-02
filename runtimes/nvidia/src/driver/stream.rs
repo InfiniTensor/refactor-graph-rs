@@ -1,52 +1,34 @@
-﻿use super::{
-    bindings as cuda,
-    context::{Context, ContextGuard},
-    AsRaw, WithCtx,
-};
-use std::{ptr::null_mut, sync::Arc};
+﻿use super::{bindings as cuda, context::ContextGuard, AsRaw};
+use std::{marker::PhantomData, ptr::null_mut};
 
-pub(crate) struct Stream {
-    pub(super) ctx: Arc<Context>,
-    stream: cuda::CUstream,
-}
+pub(crate) struct Stream<'a>(cuda::CUstream, PhantomData<&'a ()>);
 
 impl ContextGuard<'_> {
     pub fn stream(&self) -> Stream {
         let mut stream: cuda::CUstream = null_mut();
         cuda::invoke!(cuStreamCreate(&mut stream, 0));
-        Stream {
-            ctx: self.clone_ctx(),
-            stream,
-        }
+        Stream(stream, PhantomData)
     }
 }
 
-impl Drop for Stream {
+impl Drop for Stream<'_> {
     #[inline]
     fn drop(&mut self) {
         self.synchronize();
-        self.ctx
-            .apply(|_| cuda::invoke!(cuStreamDestroy_v2(self.stream)));
+        cuda::invoke!(cuStreamDestroy_v2(self.0));
     }
 }
 
-impl AsRaw<cuda::CUstream> for Stream {
+impl AsRaw<cuda::CUstream> for Stream<'_> {
     #[inline]
     unsafe fn as_raw(&self) -> cuda::CUstream {
-        self.stream
+        self.0
     }
 }
 
-impl WithCtx for Stream {
-    #[inline]
-    unsafe fn ctx(&self) -> cuda::CUcontext {
-        self.ctx.as_raw()
-    }
-}
-
-impl Stream {
+impl Stream<'_> {
     #[inline]
     pub fn synchronize(&self) {
-        cuda::invoke!(cuStreamSynchronize(self.stream));
+        cuda::invoke!(cuStreamSynchronize(self.0));
     }
 }

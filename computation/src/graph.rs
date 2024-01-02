@@ -37,7 +37,7 @@ impl From<(&str, Vec<u8>)> for Graph {
 }
 
 impl fmt::Display for Graph {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, (op, name)) in self.0.nodes.iter().enumerate() {
             writeln!(f, "*{i:>4}. {name:>32} {op:?}")?;
         }
@@ -52,7 +52,7 @@ type OpAndName = (Operator, String);
 type InputAndOutput = (Vec<usize>, Vec<usize>);
 
 fn parse_operators(
-    lines: &mut Lines<'_>,
+    lines: &mut Lines,
 ) -> (HashMap<usize, OpAndName>, HashMap<usize, InputAndOutput>) {
     let mut nodes = HashMap::new();
     let mut topology = HashMap::new();
@@ -84,7 +84,7 @@ fn parse_operators(
     (nodes, topology)
 }
 
-fn parse_global(lines: &mut Lines<'_>) -> (Vec<usize>, Vec<usize>) {
+fn parse_global(lines: &mut Lines) -> (Vec<usize>, Vec<usize>) {
     let Some(line) = lines.next() else {
         panic!("invalid graph");
     };
@@ -92,7 +92,7 @@ fn parse_global(lines: &mut Lines<'_>) -> (Vec<usize>, Vec<usize>) {
     parse_topo(line.trim_start_matches("graph."))
 }
 
-fn parse_tensors(lines: &mut Lines<'_>, data: Vec<u8>) -> Vec<(Tensor, String)> {
+fn parse_tensors(lines: &mut Lines, data: Vec<u8>) -> Vec<(Tensor, String)> {
     let data = Arc::new(data);
     let mut edges = Vec::new();
     for line in lines {

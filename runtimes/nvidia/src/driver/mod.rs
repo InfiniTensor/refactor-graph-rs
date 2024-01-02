@@ -8,7 +8,7 @@
             use $crate::driver::bindings::*;
             #[allow(unused_unsafe)]
             let err = unsafe { $f };
-            assert_eq!(err, cudaError_enum::CUDA_SUCCESS);
+            assert_eq!(err, CUresult::CUDA_SUCCESS);
         }};
     }
 

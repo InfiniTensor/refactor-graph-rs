@@ -34,7 +34,7 @@ impl AsRaw<cuda::CUcontext> for Context {
 
 impl Context {
     #[inline]
-    pub fn apply<T>(self: &Arc<Self>, f: impl FnOnce(&ContextGuard<'_>) -> T) -> T {
+    pub fn apply<T>(self: &Arc<Self>, f: impl FnOnce(&ContextGuard) -> T) -> T {
         f(&self.push())
     }
 }
@@ -55,6 +55,13 @@ impl Drop for ContextGuard<'_> {
         let mut top: cuda::CUcontext = null_mut();
         cuda::invoke!(cuCtxPopCurrent_v2(&mut top));
         debug_assert_eq!(top, self.0 .0)
+    }
+}
+
+impl AsRaw<cuda::CUcontext> for ContextGuard<'_> {
+    #[inline]
+    unsafe fn as_raw(&self) -> cuda::CUcontext {
+        self.0 .0
     }
 }
 
