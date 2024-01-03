@@ -45,7 +45,7 @@ impl Graph {
         let i = self.offsets.topology.global_inputs().nth(i).unwrap();
         let offset = self.offsets.edges[i].offset();
         self.ctx.apply(|ctx| unsafe {
-            self.static_mem.copy_in(offset, data, ctx);
+            (*self.static_mem + offset).copy_in(data, ctx);
         });
     }
 
@@ -54,7 +54,7 @@ impl Graph {
         let i = self.offsets.topology.global_outputs()[i];
         let offset = self.offsets.edges[i as usize].offset();
         self.ctx.apply(|ctx| unsafe {
-            self.static_mem.copy_out(offset, data, ctx);
+            (*self.static_mem + offset).copy_out(data, ctx);
         });
     }
 
@@ -68,7 +68,7 @@ impl Graph {
             let stream = ctx.stream();
             for (i, data) in data {
                 let offset = self.offsets.edges[start + i].offset();
-                unsafe { self.static_mem.copy_in_async(offset, data, &stream) };
+                unsafe { (*self.static_mem + offset).copy_in_async(data, &stream) };
             }
         });
     }
@@ -83,7 +83,7 @@ impl Graph {
             let stream = ctx.stream();
             for (i, data) in data {
                 let offset = self.offsets.edges[global_output[*i] as usize].offset();
-                unsafe { self.static_mem.copy_out_async(offset, data, &stream) };
+                unsafe { (*self.static_mem + offset).copy_out_async(data, &stream) };
             }
         });
     }
@@ -96,9 +96,6 @@ const CUDA_ALIGN: usize = 256;
 
 impl ContextGuard<'_> {
     pub fn runtime_graph(&self, src: &computation::Graph) -> Graph {
-        let mut static_mem: flat::RealtimeCalculator = flat::RealtimeCalculator::default();
-        let mut stack = unidir::RealtimeCalculator::default();
-
         let mut nodes = vec![usize::MAX; src.0.nodes.len()];
         let mut edges = vec![MemOffset::INVALID; src.0.edges.len()];
         let mut local_edges = BTreeSet::<usize>::new();
@@ -108,6 +105,9 @@ impl ContextGuard<'_> {
         for edge_idx in src.0.topology.connections() {
             edge_rc[edge_idx] += 1;
         }
+
+        let mut static_mem: flat::RealtimeCalculator = flat::RealtimeCalculator::default();
+        let mut stack = unidir::RealtimeCalculator::default();
 
         // 为输入输出分配静态存储区
         src.0
@@ -164,7 +164,7 @@ impl ContextGuard<'_> {
         let (static_mem, stack) = {
             let stream = self.stream();
 
-            let mut static_mem = stream.malloc(static_mem.peak());
+            let static_mem = stream.malloc(static_mem.peak());
             let stack = stream.malloc(stack.peak());
 
             for edge_idx in local_edges {
@@ -174,31 +174,39 @@ impl ContextGuard<'_> {
                 let len = tensor.blob_mem_layout().size();
                 unsafe {
                     let data = std::slice::from_raw_parts(ptr, len);
-                    static_mem.copy_in_async(offset, data, &stream);
+                    (*static_mem + offset).copy_in_async(data, &stream);
                 }
             }
 
             (static_mem, stack)
         };
 
+        let mut ptrs = Vec::with_capacity(8);
         let mut graph = driver::Graph::new();
         for (node_idx, inputs, outputs) in &src.0.topology {
-            // TODO 计算实际地址
-            let mut temp = Vec::with_capacity(1 + inputs.len() + outputs.len());
-            temp.extend(inputs.iter().map(|i| edges[*i as usize]).map(|offset| {
-                if offset.is_static() {
-                    todo!()
-                } else {
-                    todo!()
-                }
-            }));
+            let iter = std::slice::from_ref(&nodes[node_idx])
+                .iter()
+                .cloned()
+                .chain(inputs.iter().map(|i| *i as usize))
+                .chain(outputs)
+                .map(|i| edges[i as usize])
+                .map(|offset| {
+                    (if offset.is_static() {
+                        *static_mem
+                    } else {
+                        *stack
+                    }) + offset.offset()
+                });
+
+            ptrs.extend(iter);
             builders[node_idx].push_to(
                 &mut graph,
                 &resources,
-                &temp[0],
-                &temp[1..][..inputs.len()],
-                &temp[1 + inputs.len()..],
-            )
+                &ptrs[0],
+                &ptrs[1..][..inputs.len()],
+                &ptrs[1 + inputs.len()..],
+            );
+            ptrs.clear();
         }
 
         Graph {

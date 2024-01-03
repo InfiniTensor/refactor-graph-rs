@@ -30,7 +30,7 @@ impl Graph {
         src: *const c_void,
         len: usize,
         ty: MemcpyType,
-        ctx: cuda::CUcontext,
+        ctx: &ContextGuard,
     ) {
         let last_node = self.replace_last();
         let deps = Self::as_deps(&last_node);
@@ -40,7 +40,7 @@ impl Graph {
             deps.as_ptr(),
             deps.len(),
             &params_memcpy3d(dst, src as _, len, ty),
-            ctx,
+            ctx.as_raw(),
         ))
     }
 
@@ -51,7 +51,7 @@ impl Graph {
         kernel: cuda::CUfunction,
         params: *mut *mut c_void,
         shared_mem_bytes: u32,
-        ctx: cuda::CUcontext,
+        ctx: &ContextGuard,
     ) {
         let last_node = self.replace_last();
         let deps = Self::as_deps(&last_node);
@@ -72,8 +72,29 @@ impl Graph {
                 kernelParams: params,
                 extra: null_mut(),
                 kern: null_mut(),
-                ctx
+                ctx: ctx.as_raw(),
             }
+        ))
+    }
+
+    pub fn record_child_graph(&mut self, f: impl FnOnce(&Stream), ctx: &ContextGuard) {
+        let mut child_graph: cuda::CUgraph = null_mut();
+        let capture_mode = cuda::CUstreamCaptureMode::CU_STREAM_CAPTURE_MODE_GLOBAL;
+        {
+            let stream = ctx.stream();
+            cuda::invoke!(cuStreamBeginCapture_v2(stream.as_raw(), capture_mode));
+            f(&stream);
+            cuda::invoke!(cuStreamEndCapture(stream.as_raw(), &mut child_graph));
+        }
+
+        let last_node = self.replace_last();
+        let deps = Self::as_deps(&last_node);
+        cuda::invoke!(cuGraphAddChildGraphNode(
+            &mut self.last_node,
+            self.graph,
+            deps.as_ptr(),
+            deps.len(),
+            child_graph
         ))
     }
 

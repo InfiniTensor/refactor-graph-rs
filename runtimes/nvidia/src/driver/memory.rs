@@ -1,5 +1,8 @@
 ﻿use super::{bindings as cuda, context::ContextGuard, stream::Stream, AsRaw};
-use std::alloc::Layout;
+use std::{
+    alloc::Layout,
+    ops::{Add, Deref},
+};
 
 #[derive(Default, Debug)]
 #[repr(transparent)]
@@ -40,34 +43,57 @@ impl Drop for DevicePtr {
     }
 }
 
+impl Deref for DevicePtr {
+    type Target = RefDevicePtr;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 impl DevicePtr {
     #[inline]
     pub fn take(&mut self) -> Self {
         std::mem::take(self)
     }
+}
+
+#[derive(Clone, Copy, Default, Debug)]
+#[repr(transparent)]
+pub struct RefDevicePtr(cuda::CUdeviceptr);
+
+impl Add<usize> for RefDevicePtr {
+    type Output = Self;
 
     #[inline]
-    pub unsafe fn copy_in<T>(&mut self, offset: usize, data: &[T], _ctx: &ContextGuard) {
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs as cuda::CUdeviceptr)
+    }
+}
+
+impl RefDevicePtr {
+    #[inline]
+    pub unsafe fn copy_in<T>(&mut self, data: &[T], _ctx: &ContextGuard) {
         cuda::invoke!(cuMemcpyHtoD_v2(
-            self.0 + offset as cuda::CUdeviceptr,
+            self.0,
             data.as_ptr().cast(),
             Layout::array::<T>(data.len()).unwrap().size()
         ));
     }
 
     #[inline]
-    pub unsafe fn copy_out<T>(&mut self, offset: usize, data: &mut [T], _ctx: &ContextGuard) {
+    pub unsafe fn copy_out<T>(&mut self, data: &mut [T], _ctx: &ContextGuard) {
         cuda::invoke!(cuMemcpyDtoH_v2(
             data.as_mut_ptr().cast(),
-            self.0 + offset as cuda::CUdeviceptr,
+            self.0,
             Layout::array::<T>(data.len()).unwrap().size()
         ));
     }
 
     #[inline]
-    pub unsafe fn copy_in_async<T>(&mut self, offset: usize, data: &[T], stream: &Stream) {
+    pub unsafe fn copy_in_async<T>(&mut self, data: &[T], stream: &Stream) {
         cuda::invoke!(cuMemcpyHtoDAsync_v2(
-            self.0 + offset as cuda::CUdeviceptr,
+            self.0,
             data.as_ptr().cast(),
             Layout::array::<T>(data.len()).unwrap().size(),
             stream.as_raw(),
@@ -75,10 +101,10 @@ impl DevicePtr {
     }
 
     #[inline]
-    pub unsafe fn copy_out_async<T>(&mut self, offset: usize, data: &mut [T], stream: &Stream) {
+    pub unsafe fn copy_out_async<T>(&mut self, data: &mut [T], stream: &Stream) {
         cuda::invoke!(cuMemcpyDtoHAsync_v2(
             data.as_mut_ptr().cast(),
-            self.0 + offset as cuda::CUdeviceptr,
+            self.0,
             Layout::array::<T>(data.len()).unwrap().size(),
             stream.as_raw(),
         ));

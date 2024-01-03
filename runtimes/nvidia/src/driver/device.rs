@@ -13,6 +13,7 @@ pub(crate) fn devices() -> &'static Vec<Device> {
     })
 }
 
+#[allow(dead_code)]
 pub(crate) struct Device {
     pub index: i32,
     pub capability: (i32, i32),

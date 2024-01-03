@@ -1,4 +1,4 @@
-﻿use crate::driver::{ContextGuard, DevicePtr, Graph};
+﻿use crate::driver::{ContextGuard, Graph, RefDevicePtr};
 use computation::Operator;
 use std::alloc::Layout;
 
@@ -9,9 +9,9 @@ pub(crate) trait GraphBuilder {
         &self,
         graph: &mut Graph,
         resources: &Resources,
-        workspace: &DevicePtr,
-        inputs: &[DevicePtr],
-        outputs: &[DevicePtr],
+        workspace: &RefDevicePtr,
+        inputs: &[RefDevicePtr],
+        outputs: &[RefDevicePtr],
     );
 }
 

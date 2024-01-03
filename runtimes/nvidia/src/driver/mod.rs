@@ -37,4 +37,4 @@ trait WithCtx {
 pub(crate) use context::{Context, ContextGuard};
 pub(crate) use device::devices;
 pub(crate) use graph::{ExecutableGraph, Graph};
-pub(crate) use memory::DevicePtr;
+pub(crate) use memory::{DevicePtr, RefDevicePtr};
