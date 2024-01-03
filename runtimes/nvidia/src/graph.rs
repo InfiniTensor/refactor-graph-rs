@@ -2,8 +2,9 @@
     driver::{self, ContextGuard},
     kernel::{GraphBuilder, GraphUser, Resources},
 };
+use graph_topo::EdgeIndices;
 use stack_calculator::{flat, unidir, RealtimeCalculator};
-use std::{alloc::Layout, collections::BTreeSet, sync::Arc};
+use std::{alloc::Layout, collections::BTreeSet, ops::Range, sync::Arc};
 
 pub struct Graph {
     ctx: Arc<driver::Context>,
@@ -89,11 +90,6 @@ impl Graph {
     }
 }
 
-#[allow(non_camel_case_types)]
-type urc = u16;
-const STATIC: urc = urc::MAX;
-const CUDA_ALIGN: usize = 256;
-
 impl ContextGuard<'_> {
     pub fn runtime_graph(&self, src: &computation::Graph) -> Graph {
         let mut nodes = vec![usize::MAX; src.0.nodes.len()];
@@ -101,65 +97,58 @@ impl ContextGuard<'_> {
         let mut local_edges = BTreeSet::<usize>::new();
 
         // 计算边引用计数
-        let mut edge_rc = vec![0 as urc; src.0.edges.len()];
-        for edge_idx in src.0.topology.connections() {
-            edge_rc[edge_idx] += 1;
-        }
+        let mut edge_rc = src.0.edge_rc();
 
         let mut static_mem: flat::RealtimeCalculator = flat::RealtimeCalculator::default();
         let mut stack = unidir::RealtimeCalculator::default();
 
-        // 为输入输出分配静态存储区
-        src.0
-            .topology
-            .global_inputs()
-            .chain(src.0.topology.global_outputs())
-            .for_each(|edge_idx| {
-                alloc_static(src, edge_idx, &mut edges, &mut edge_rc, &mut static_mem)
-            });
-
         // 计算工作空间需求，分配栈空间
-        let mut builders = Vec::<Box<dyn GraphBuilder>>::with_capacity(src.0.nodes.len());
-        let mut resources = Resources::default();
+        let mut builders = BuilderCollector::new(src);
         for (node_idx, inputs, outputs) in &src.0.topology {
-            let (op, _) = &src.0.nodes[node_idx];
-            let builder = op.builder(&mut resources, self);
-            let workspace = builder.worksapce().align_to(CUDA_ALIGN).unwrap();
-            builders.push(builder);
+            let layouts = builders.push(node_idx, &inputs, &outputs, self);
+            let (workspace, layouts) = layouts.split_first().unwrap();
+            let (inputs_, outputs_) = layouts.split_at(inputs.len());
+            let inputs = inputs.into_iter().zip(inputs_.iter().cloned());
+            let outputs = outputs.into_iter().zip(outputs_.iter().cloned());
 
             // alloc for outputs
-            for edge_idx in outputs.clone() {
-                if edge_rc[edge_idx] != STATIC {
-                    alloc_stack(src, edge_idx, &mut edges, &mut stack);
-                }
+            for (edge_idx, layout) in outputs.clone() {
+                edges[edge_idx] = if edge_rc[edge_idx].is_global() {
+                    MemOffset::from_static(static_mem.alloc(layout).start)
+                } else {
+                    MemOffset::from_stack(stack.alloc(layout).start)
+                };
             }
             // alloc for workspaces
-            alloc_workspace(workspace, node_idx, &mut nodes, &mut stack);
+            {
+                let workspace = stack.alloc(*workspace);
+                nodes[node_idx] = workspace.start;
+                stack.free(workspace);
+            }
             // free for temp outputs
-            for edge_idx in outputs {
-                if edge_rc[edge_idx] == 0 {
-                    free_stack(src, edge_idx, &edges[edge_idx], &mut stack);
+            for (edge_idx, layout) in outputs {
+                if edge_rc[edge_idx].is_free() {
+                    let start = edges[edge_idx].offset();
+                    stack.free(start..start + layout.size());
                 }
             }
             // free for inputs or alloc for local static inputs
-            for edge_idx in inputs {
+            for (edge_idx, layout) in inputs {
                 let offset = edges[edge_idx];
-                if offset == MemOffset::INVALID {
+                if offset.is_invalid() {
                     local_edges.insert(edge_idx);
-                    alloc_static(src, edge_idx, &mut edges, &mut edge_rc, &mut static_mem);
+                    edges[edge_idx] = MemOffset::from_static(static_mem.alloc(layout).start);
                 } else {
-                    let rc = &mut edge_rc[edge_idx];
-                    debug_assert_ne!(*rc, 0);
-                    *rc -= 1;
-                    if *rc == 0 {
-                        free_stack(src, edge_idx, &offset, &mut stack);
+                    if edge_rc[edge_idx].free() {
+                        let start = offset.offset();
+                        stack.free(start..start + layout.size());
                     }
                 }
             }
         }
 
         // 实际分配显存空间
-        let resources = resources;
+        let (builders, resources) = builders.take();
         let edges = edges;
         let (static_mem, stack) = {
             let stream = self.stream();
@@ -167,14 +156,17 @@ impl ContextGuard<'_> {
             let static_mem = stream.malloc(static_mem.peak());
             let stack = stream.malloc(stack.peak());
 
+            let global_inputs = src.0.topology.global_inputs();
             for edge_idx in local_edges {
-                let offset = edges[edge_idx].offset();
-                let tensor = &src.0.edges[edge_idx].0;
-                let ptr = tensor.blob.as_ref().unwrap().get().cast::<u8>();
-                let len = tensor.blob_mem_layout().size();
-                unsafe {
-                    let data = std::slice::from_raw_parts(ptr, len);
-                    (*static_mem + offset).copy_in_async(data, &stream);
+                if !global_inputs.contains(&edge_idx) {
+                    let offset = edges[edge_idx].offset();
+                    let tensor = &src.0.edges[edge_idx].0;
+                    let ptr = tensor.blob.as_ref().unwrap().get().cast::<u8>();
+                    let len = tensor.blob_mem_layout().size();
+                    unsafe {
+                        let data = std::slice::from_raw_parts(ptr, len);
+                        (*static_mem + offset).copy_in_async(data, &stream);
+                    }
                 }
             }
 
@@ -224,61 +216,58 @@ impl ContextGuard<'_> {
     }
 }
 
-fn alloc_workspace(
-    workspace: Layout,
-    node_idx: usize,
-    nodes: &mut [usize],
-    stack: &mut unidir::RealtimeCalculator,
-) {
-    let workspace = stack.alloc(workspace);
-    nodes[node_idx] = workspace.start;
-    stack.free(workspace);
+struct BuilderCollector<'a> {
+    builders: Vec<Box<dyn GraphBuilder>>,
+    resources: Resources,
+    src: &'a computation::Graph,
 }
 
-fn alloc_stack(
-    src: &computation::Graph,
-    edge_idx: usize,
-    edges: &mut [MemOffset],
-    calculator: &mut unidir::RealtimeCalculator,
-) {
-    let layout = src.0.edges[edge_idx]
-        .0
-        .blob_mem_layout()
-        .align_to(CUDA_ALIGN)
-        .unwrap();
-    let offset = calculator.alloc(layout).start;
-    edges[edge_idx] = MemOffset::from_stack(offset);
+impl<'a> BuilderCollector<'a> {
+    fn new(src: &'a computation::Graph) -> Self {
+        Self {
+            builders: Vec::new(),
+            resources: Resources::default(),
+            src,
+        }
+    }
 }
 
-fn free_stack(
-    src: &computation::Graph,
-    edge_idx: usize,
-    offset: &MemOffset,
-    calculator: &mut unidir::RealtimeCalculator,
-) {
-    let start = offset.offset();
-    let len = src.0.edges[edge_idx].0.blob_mem_layout().size();
-    calculator.free(start..start + len);
+impl BuilderCollector<'_> {
+    fn push(
+        &mut self,
+        node_idx: usize,
+        inputs: &EdgeIndices,
+        outputs: &Range<usize>,
+        ctx: &ContextGuard,
+    ) -> Vec<Layout> {
+        let tensors = inputs
+            .iter()
+            .map(|i| &self.src.0.edges[*i as usize].0)
+            .chain(outputs.clone().map(|i| &self.src.0.edges[i].0))
+            .collect::<Vec<_>>();
+        let (inputs, outputs) = tensors.split_at(inputs.len());
+
+        let (op, _) = &self.src.0.nodes[node_idx];
+        let builder = op.builder(inputs, outputs, &mut self.resources, ctx);
+        let workspace = builder.worksapce();
+        self.builders.push(builder);
+
+        const CUDA_ALIGN: usize = 256;
+        std::slice::from_ref(&workspace)
+            .iter()
+            .cloned()
+            .chain(inputs.iter().map(|t| t.blob_mem_layout()))
+            .chain(outputs.iter().map(|t| t.blob_mem_layout()))
+            .map(|layout| layout.align_to(CUDA_ALIGN).unwrap())
+            .collect()
+    }
+
+    fn take(self) -> (Vec<Box<dyn GraphBuilder>>, Resources) {
+        (self.builders, self.resources)
+    }
 }
 
-fn alloc_static(
-    src: &computation::Graph,
-    edge_idx: usize,
-    edges: &mut [MemOffset],
-    edge_rc: &mut [urc],
-    calculator: &mut flat::RealtimeCalculator,
-) {
-    let layout = src.0.edges[edge_idx]
-        .0
-        .blob_mem_layout()
-        .align_to(CUDA_ALIGN)
-        .unwrap();
-    let offset = calculator.alloc(layout).start;
-    edges[edge_idx] = MemOffset::from_static(offset);
-    edge_rc[edge_idx] = STATIC;
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 struct MemOffset(usize);
 
@@ -297,13 +286,18 @@ impl MemOffset {
     }
 
     #[inline]
+    const fn is_invalid(self) -> bool {
+        self.0 == Self::INVALID.0
+    }
+
+    #[inline]
     const fn is_static(self) -> bool {
         self.0 & Self::BIT == 0
     }
 
     #[inline]
     fn offset(self) -> usize {
-        debug_assert_ne!(self, Self::INVALID);
+        debug_assert_ne!(self.0, Self::INVALID.0);
         self.0 & !Self::BIT
     }
 }

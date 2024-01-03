@@ -1,5 +1,5 @@
 ﻿use crate::driver::{ContextGuard, Graph, RefDevicePtr};
-use computation::Operator;
+use computation::{Operator, Tensor};
 use std::alloc::Layout;
 
 pub(crate) trait GraphBuilder {
@@ -16,14 +16,26 @@ pub(crate) trait GraphBuilder {
 }
 
 pub(crate) trait GraphUser {
-    fn builder(&self, resources: &mut Resources, ctx: &ContextGuard) -> Box<dyn GraphBuilder>;
+    fn builder(
+        &self,
+        inputs: &[&Tensor],
+        outputs: &[&Tensor],
+        resources: &mut Resources,
+        ctx: &ContextGuard,
+    ) -> Box<dyn GraphBuilder>;
 }
 
 #[derive(Default, Debug)]
 pub(crate) struct Resources {}
 
 impl GraphUser for Operator {
-    fn builder(&self, resources: &mut Resources, ctx: &ContextGuard) -> Box<dyn GraphBuilder> {
+    fn builder(
+        &self,
+        inputs: &[&Tensor],
+        outputs: &[&Tensor],
+        resources: &mut Resources,
+        ctx: &ContextGuard,
+    ) -> Box<dyn GraphBuilder> {
         match self {
             Operator::BatchNormalization { epsilon } => todo!(),
             Operator::Broadcast => todo!(),

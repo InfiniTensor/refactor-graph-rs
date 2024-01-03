@@ -20,7 +20,7 @@ mod container;
 #[allow(non_camel_case_types)]
 pub type ucount = u32;
 pub use builder::Builder;
-pub use container::{EdgeIndices, Graph, GraphTopo, Iter};
+pub use container::{EdgeIndices, EdgeRc, Graph, GraphTopo, Iter};
 
 #[test]
 fn test() {

@@ -12,6 +12,49 @@ pub struct Graph<N, E> {
     pub edges: Vec<E>,
 }
 
+impl<N, E> Graph<N, E> {
+    /// 计算图中边的引用计数。
+    pub fn edge_rc(&self) -> Vec<EdgeRc> {
+        let mut ans = vec![EdgeRc(0); self.edges.len()];
+        for edge_idx in self.topology.connections() {
+            ans[edge_idx].0 += 1;
+        }
+        for edge_idx in self.topology.global_outputs() {
+            ans[edge_idx] = EdgeRc::GLOBAL;
+        }
+        ans
+    }
+}
+
+/// 边引用计数类型。
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct EdgeRc(u16);
+
+impl EdgeRc {
+    const GLOBAL: Self = Self(u16::MAX);
+
+    /// 判断是否全图出边。
+    #[inline]
+    pub const fn is_global(self) -> bool {
+        self.0 == Self::GLOBAL.0
+    }
+
+    /// 判断是否未被引用。
+    #[inline]
+    pub const fn is_free(self) -> bool {
+        self.0 == 0
+    }
+
+    /// 释放一个引用并判断是否边不再被引用。
+    #[inline]
+    pub fn free(&mut self) -> bool {
+        debug_assert_ne!(self.0, 0);
+        self.0 -= 1;
+        self.0 == 0
+    }
+}
+
 /// 图拓扑结构。
 #[derive(Clone, Default, Debug)]
 pub struct GraphTopo {
