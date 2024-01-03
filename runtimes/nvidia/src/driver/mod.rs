@@ -34,8 +34,7 @@ trait WithCtx {
     unsafe fn ctx(&self) -> bindings::CUcontext;
 }
 
-pub(crate) use bindings::init;
 pub(crate) use context::{Context, ContextGuard};
 pub(crate) use device::devices;
 pub(crate) use graph::{ExecutableGraph, Graph};
-pub(crate) use memory::Blob;
+pub(crate) use memory::DevicePtr;
