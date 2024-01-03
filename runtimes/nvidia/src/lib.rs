@@ -4,5 +4,6 @@
 
 mod driver;
 mod graph;
+mod kernel;
 
 pub use graph::Graph;

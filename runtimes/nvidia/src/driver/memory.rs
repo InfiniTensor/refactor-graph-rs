@@ -19,6 +19,20 @@ impl ContextGuard<'_> {
     }
 }
 
+impl Stream<'_> {
+    #[inline]
+    pub fn malloc(&self, size: usize) -> DevicePtr {
+        let mut ptr: cuda::CUdeviceptr = 0;
+        cuda::invoke!(cuMemAllocAsync(&mut ptr, size, self.as_raw()));
+        DevicePtr(ptr)
+    }
+
+    #[inline]
+    pub fn free(&self, ptr: DevicePtr) {
+        cuda::invoke!(cuMemFreeAsync(ptr.0, self.as_raw()));
+    }
+}
+
 impl Drop for DevicePtr {
     #[inline]
     fn drop(&mut self) {
