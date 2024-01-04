@@ -6,9 +6,11 @@
     };
 
     println!("cargo:rustc-cfg=detected_cuda");
+    println!("cargo:rustc-env=CUDA_ROOT={}", cuda_root.display());
 
     // Tell cargo to tell rustc to link the cuda library.
     find_cuda_helper::include_cuda();
+    println!("cargo:rustc-link-lib=dylib=nvrtc");
 
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=wrapper.h");
@@ -19,14 +21,16 @@
         // The input header we would like to generate bindings for.
         .header("wrapper.h")
         .clang_arg(format!("-I{}/include", cuda_root.display()))
-        // Only generate bindings for the functions in the cu* namespace.
+        // Only generate bindings for the functions in these namespaces.
         .allowlist_function("cu.*")
+        .allowlist_function("nvrtc.*")
+        // Annotate the given type with the #[must_use] attribute.
+        .must_use_type("CUresult")
+        .must_use_type("nvrtcResult")
         // Generate rust style enums.
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: true,
         })
-        // Annotate the given type with the #[must_use] attribute.
-        .must_use_type("CUresult")
         // Use core instead of std in the generated bindings.
         .use_core()
         // Tell cargo to invalidate the built crate whenever any of the included header files changed.

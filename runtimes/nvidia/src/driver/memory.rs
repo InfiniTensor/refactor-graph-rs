@@ -12,13 +12,13 @@ impl ContextGuard<'_> {
     #[inline]
     pub fn malloc(&self, size: usize) -> DevicePtr {
         let mut ptr: cuda::CUdeviceptr = 0;
-        cuda::invoke!(cuMemAlloc_v2(&mut ptr, size));
+        cuda::driver!(cuMemAlloc_v2(&mut ptr, size));
         DevicePtr(ptr)
     }
 
     #[inline]
     pub fn free(&self, ptr: DevicePtr) {
-        cuda::invoke!(cuMemFree_v2(ptr.0));
+        cuda::driver!(cuMemFree_v2(ptr.0));
     }
 }
 
@@ -26,13 +26,13 @@ impl Stream<'_> {
     #[inline]
     pub fn malloc(&self, size: usize) -> DevicePtr {
         let mut ptr: cuda::CUdeviceptr = 0;
-        cuda::invoke!(cuMemAllocAsync(&mut ptr, size, self.as_raw()));
+        cuda::driver!(cuMemAllocAsync(&mut ptr, size, self.as_raw()));
         DevicePtr(ptr)
     }
 
     #[inline]
     pub fn free(&self, ptr: DevicePtr) {
-        cuda::invoke!(cuMemFreeAsync(ptr.0, self.as_raw()));
+        cuda::driver!(cuMemFreeAsync(ptr.0, self.as_raw()));
     }
 }
 
@@ -74,7 +74,7 @@ impl Add<usize> for RefDevicePtr {
 impl RefDevicePtr {
     #[inline]
     pub unsafe fn copy_in<T>(&mut self, data: &[T], _ctx: &ContextGuard) {
-        cuda::invoke!(cuMemcpyHtoD_v2(
+        cuda::driver!(cuMemcpyHtoD_v2(
             self.0,
             data.as_ptr().cast(),
             Layout::array::<T>(data.len()).unwrap().size()
@@ -83,7 +83,7 @@ impl RefDevicePtr {
 
     #[inline]
     pub unsafe fn copy_out<T>(&mut self, data: &mut [T], _ctx: &ContextGuard) {
-        cuda::invoke!(cuMemcpyDtoH_v2(
+        cuda::driver!(cuMemcpyDtoH_v2(
             data.as_mut_ptr().cast(),
             self.0,
             Layout::array::<T>(data.len()).unwrap().size()
@@ -92,7 +92,7 @@ impl RefDevicePtr {
 
     #[inline]
     pub unsafe fn copy_in_async<T>(&mut self, data: &[T], stream: &Stream) {
-        cuda::invoke!(cuMemcpyHtoDAsync_v2(
+        cuda::driver!(cuMemcpyHtoDAsync_v2(
             self.0,
             data.as_ptr().cast(),
             Layout::array::<T>(data.len()).unwrap().size(),
@@ -102,7 +102,7 @@ impl RefDevicePtr {
 
     #[inline]
     pub unsafe fn copy_out_async<T>(&mut self, data: &mut [T], stream: &Stream) {
-        cuda::invoke!(cuMemcpyDtoHAsync_v2(
+        cuda::driver!(cuMemcpyDtoHAsync_v2(
             data.as_mut_ptr().cast(),
             self.0,
             Layout::array::<T>(data.len()).unwrap().size(),

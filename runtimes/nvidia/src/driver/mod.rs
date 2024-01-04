@@ -2,7 +2,7 @@
     #![allow(unused, non_upper_case_globals, non_camel_case_types, non_snake_case)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-    macro_rules! invoke {
+    macro_rules! driver {
         ($f:expr) => {{
             #[allow(unused_imports)]
             use $crate::driver::bindings::*;
@@ -12,18 +12,29 @@
         }};
     }
 
-    #[inline(always)]
-    pub(crate) fn init() {
-        invoke!(cuInit(0));
+    macro_rules! nvrtc {
+        ($f:expr) => {{
+            #[allow(unused_imports)]
+            use $crate::driver::bindings::*;
+            #[allow(unused_unsafe)]
+            let err = unsafe { $f };
+            assert_eq!(err, nvrtcResult::NVRTC_SUCCESS);
+        }};
     }
 
-    pub(super) use invoke;
+    #[inline(always)]
+    pub(crate) fn init() {
+        driver!(cuInit(0));
+    }
+
+    pub(super) use {driver, nvrtc};
 }
 
 mod context;
 mod device;
 mod graph;
 mod memory;
+mod nvrtc;
 mod stream;
 
 trait AsRaw<T> {
@@ -34,6 +45,7 @@ trait WithCtx {
     unsafe fn ctx(&self) -> bindings::CUcontext;
 }
 
+pub(crate) use bindings::CUresult;
 pub(crate) use context::{Context, ContextGuard};
 pub(crate) use device::devices;
 pub(crate) use graph::{ExecutableGraph, Graph};

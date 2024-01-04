@@ -6,7 +6,7 @@ pub(crate) struct Stream<'a>(cuda::CUstream, PhantomData<&'a ()>);
 impl ContextGuard<'_> {
     pub fn stream(&self) -> Stream {
         let mut stream: cuda::CUstream = null_mut();
-        cuda::invoke!(cuStreamCreate(&mut stream, 0));
+        cuda::driver!(cuStreamCreate(&mut stream, 0));
         Stream(stream, PhantomData)
     }
 }
@@ -15,7 +15,7 @@ impl Drop for Stream<'_> {
     #[inline]
     fn drop(&mut self) {
         self.synchronize();
-        cuda::invoke!(cuStreamDestroy_v2(self.0));
+        cuda::driver!(cuStreamDestroy_v2(self.0));
     }
 }
 
@@ -29,6 +29,6 @@ impl AsRaw<cuda::CUstream> for Stream<'_> {
 impl Stream<'_> {
     #[inline]
     pub fn synchronize(&self) {
-        cuda::invoke!(cuStreamSynchronize(self.0));
+        cuda::driver!(cuStreamSynchronize(self.0));
     }
 }
