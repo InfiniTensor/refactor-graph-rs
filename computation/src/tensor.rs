@@ -1,5 +1,4 @@
-﻿use crate::udim;
-use common::DataType;
+﻿use common::{udim, DataType};
 use std::{alloc::Layout, fmt, str::FromStr, sync::Arc};
 
 /// 张量。

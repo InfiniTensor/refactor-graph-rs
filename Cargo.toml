@@ -4,6 +4,7 @@ members = [
     "graph-topo",
     "computation",
     "stack-calculator",
+    "runtimes/kernel-meta",
     "runtimes/cpu",
     "runtimes/nvidia",
 ]

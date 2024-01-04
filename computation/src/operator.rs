@@ -1,4 +1,4 @@
-﻿use crate::{ddim, sdim, udim};
+﻿use common::{ddim, sdim, udim};
 use smallvec::SmallVec;
 
 /// 算子。
