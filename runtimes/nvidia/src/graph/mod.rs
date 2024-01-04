@@ -1,10 +1,14 @@
-﻿use crate::{
+﻿mod builder_collector;
+mod mem_offset;
+
+use crate::{
     driver::{self, ContextGuard},
-    kernel::{GraphBuilder, GraphUser, Resources},
+    kernel::Resources,
 };
-use graph_topo::EdgeIndices;
+use builder_collector::BuilderCollector;
+use mem_offset::MemOffset;
 use stack_calculator::{flat, unidir, RealtimeCalculator};
-use std::{alloc::Layout, collections::BTreeSet, ops::Range, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 
 pub struct Graph {
     ctx: Arc<driver::Context>,
@@ -173,32 +177,24 @@ impl ContextGuard<'_> {
             (static_mem, stack)
         };
 
-        let mut ptrs = Vec::with_capacity(8);
         let mut graph = driver::Graph::new();
         for (node_idx, inputs, outputs) in &src.0.topology {
-            let iter = std::slice::from_ref(&nodes[node_idx])
+            let ptrs = inputs
                 .iter()
-                .cloned()
-                .chain(inputs.iter().map(|i| *i as usize))
+                .map(|i| *i as usize)
                 .chain(outputs)
-                .map(|i| edges[i as usize])
+                .map(|i| edges[i])
                 .map(|offset| {
                     (if offset.is_static() {
                         *static_mem
                     } else {
                         *stack
                     }) + offset.offset()
-                });
-
-            ptrs.extend(iter);
-            builders[node_idx].push_to(
-                &mut graph,
-                &resources,
-                &ptrs[0],
-                &ptrs[1..][..inputs.len()],
-                &ptrs[1 + inputs.len()..],
-            );
-            ptrs.clear();
+                })
+                .collect::<Vec<_>>();
+            let workspace = *stack + nodes[node_idx];
+            let (inputs, outputs) = ptrs.split_at(inputs.len());
+            builders[node_idx].push_to(&mut graph, &resources, &workspace, inputs, outputs);
         }
 
         Graph {
@@ -213,91 +209,5 @@ impl ContextGuard<'_> {
                 edges,
             },
         }
-    }
-}
-
-struct BuilderCollector<'a> {
-    builders: Vec<Box<dyn GraphBuilder>>,
-    resources: Resources,
-    src: &'a computation::Graph,
-}
-
-impl<'a> BuilderCollector<'a> {
-    fn new(src: &'a computation::Graph) -> Self {
-        Self {
-            builders: Vec::new(),
-            resources: Resources::default(),
-            src,
-        }
-    }
-}
-
-impl BuilderCollector<'_> {
-    fn push(
-        &mut self,
-        node_idx: usize,
-        inputs: &EdgeIndices,
-        outputs: &Range<usize>,
-        ctx: &ContextGuard,
-    ) -> Vec<Layout> {
-        let tensors = inputs
-            .iter()
-            .map(|i| &self.src.0.edges[*i as usize].0)
-            .chain(outputs.clone().map(|i| &self.src.0.edges[i].0))
-            .collect::<Vec<_>>();
-        let (inputs, outputs) = tensors.split_at(inputs.len());
-
-        let (op, _) = &self.src.0.nodes[node_idx];
-        let builder = op.builder(inputs, outputs, &mut self.resources, ctx);
-        let workspace = builder.worksapce();
-        self.builders.push(builder);
-
-        const CUDA_ALIGN: usize = 256;
-        std::slice::from_ref(&workspace)
-            .iter()
-            .cloned()
-            .chain(inputs.iter().map(|t| t.blob_mem_layout()))
-            .chain(outputs.iter().map(|t| t.blob_mem_layout()))
-            .map(|layout| layout.align_to(CUDA_ALIGN).unwrap())
-            .collect()
-    }
-
-    fn take(self) -> (Vec<Box<dyn GraphBuilder>>, Resources) {
-        (self.builders, self.resources)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-#[repr(transparent)]
-struct MemOffset(usize);
-
-impl MemOffset {
-    const INVALID: Self = Self(usize::MAX);
-    const BIT: usize = 1 << (usize::BITS - 1);
-
-    #[inline]
-    const fn from_static(offset: usize) -> Self {
-        Self(offset)
-    }
-
-    #[inline]
-    const fn from_stack(offset: usize) -> Self {
-        Self(offset | Self::BIT)
-    }
-
-    #[inline]
-    const fn is_invalid(self) -> bool {
-        self.0 == Self::INVALID.0
-    }
-
-    #[inline]
-    const fn is_static(self) -> bool {
-        self.0 & Self::BIT == 0
-    }
-
-    #[inline]
-    fn offset(self) -> usize {
-        debug_assert_ne!(self.0, Self::INVALID.0);
-        self.0 & !Self::BIT
     }
 }
