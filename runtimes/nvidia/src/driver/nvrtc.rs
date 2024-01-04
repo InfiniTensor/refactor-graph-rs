@@ -1,9 +1,69 @@
 ﻿use super::{bindings as cuda, Context, ContextGuard};
 use std::{
+    collections::{hash_map::Keys, HashMap},
     ffi::{c_char, CStr, CString},
     ptr::{null, null_mut},
     sync::Arc,
+    sync::{Mutex, OnceLock},
 };
+
+static MODULES: OnceLock<Mutex<HashMap<String, Arc<Module>>>> = OnceLock::new();
+
+pub(crate) fn compile<'a, I, U, V>(code: &str, symbols: I, ctx: &ContextGuard)
+where
+    I: IntoIterator<Item = (U, V)>,
+    U: AsRef<str>,
+    V: AsRef<str>,
+{
+    let symbols = symbols
+        .into_iter()
+        .map(|(k, v)| (k.as_ref().to_owned(), v.as_ref().to_owned()))
+        .collect::<HashMap<_, _>>();
+    // 先检查一遍并确保静态对象创建
+    let modules = if let Some(modules) = MODULES.get() {
+        if check_hold(&*modules.lock().unwrap(), symbols.keys()) {
+            return;
+        }
+        modules
+    } else {
+        MODULES.get_or_init(|| Default::default())
+    };
+    // 编译
+    let (module, log) = Module::from_src(code, ctx);
+    println!("{log}");
+    // 再上锁检查一遍
+    let module = Arc::new(module.unwrap());
+    let mut map = modules.lock().unwrap();
+    if !check_hold(&*map, symbols.keys()) {
+        for k in symbols.keys() {
+            // 确认指定的符号都存在
+            module.get_function(k);
+            map.insert(k.clone(), module.clone());
+        }
+    }
+}
+
+pub(crate) fn get_function(name: &str) -> Option<cuda::CUfunction> {
+    MODULES.get().and_then(|modules| {
+        modules
+            .lock()
+            .unwrap()
+            .get(name)
+            .map(|module| module.get_function(name))
+    })
+}
+
+fn check_hold(map: &HashMap<String, Arc<Module>>, symbols: Keys<'_, String, String>) -> bool {
+    let len = symbols.len();
+    let had = symbols.filter(|&k| map.contains_key(k)).count();
+    if had == len {
+        true
+    } else if had == 0 {
+        false
+    } else {
+        panic!()
+    }
+}
 
 struct Module {
     ctx: Arc<Context>,
@@ -11,6 +71,7 @@ struct Module {
 }
 
 unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
 
 impl Drop for Module {
     #[inline]

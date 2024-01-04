@@ -34,7 +34,7 @@ mod context;
 mod device;
 mod graph;
 mod memory;
-mod nvrtc;
+pub mod nvrtc;
 mod stream;
 
 trait AsRaw<T> {
@@ -45,7 +45,6 @@ trait WithCtx {
     unsafe fn ctx(&self) -> bindings::CUcontext;
 }
 
-pub(crate) use bindings::CUresult;
 pub(crate) use context::{Context, ContextGuard};
 pub(crate) use device::devices;
 pub(crate) use graph::{ExecutableGraph, Graph};
