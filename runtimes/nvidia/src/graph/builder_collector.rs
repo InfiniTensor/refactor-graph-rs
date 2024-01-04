@@ -42,13 +42,12 @@ impl BuilderCollector<'_> {
         let workspace = builder.worksapce();
         self.builders.push(builder);
 
-        const CUDA_ALIGN: usize = 256;
         std::slice::from_ref(&workspace)
             .iter()
             .cloned()
             .chain(inputs.iter().map(|t| t.blob_mem_layout()))
             .chain(outputs.iter().map(|t| t.blob_mem_layout()))
-            .map(|layout| layout.align_to(CUDA_ALIGN).unwrap())
+            .map(cuda_align)
             .collect()
     }
 
@@ -56,4 +55,19 @@ impl BuilderCollector<'_> {
     pub fn take(self) -> (Vec<Box<dyn GraphBuilder>>, Resources) {
         (self.builders, self.resources)
     }
+}
+
+#[inline]
+fn cuda_align(layout: Layout) -> Layout {
+    const MIN_ALIGN: usize = 32;
+    const MAX_ALIGN: usize = 256;
+    layout
+        .align_to(
+            layout
+                .size()
+                .next_power_of_two()
+                .max(MIN_ALIGN)
+                .min(MAX_ALIGN),
+        )
+        .unwrap()
 }
