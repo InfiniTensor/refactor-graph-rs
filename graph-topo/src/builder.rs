@@ -1,4 +1,7 @@
-﻿use crate::container::{Graph, GraphTopo, Node, OutputEdge};
+﻿use super::{
+    container::{Graph, GraphTopo, Node},
+    ucount,
+};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
@@ -56,7 +59,7 @@ where
             .iter()
             .enumerate()
             .map(|(i, edge)| {
-                key_to_idx.insert(edge, i);
+                key_to_idx.insert(edge, i as ucount);
                 not_local.insert(edge);
                 self.edges.remove(edge).unwrap_or_default()
             })
@@ -73,7 +76,7 @@ where
                 .add(self.global_outputs.len()),
         );
         // 预留全图输出边的空间
-        connections.resize(self.global_outputs.len(), OutputEdge(usize::MAX));
+        connections.resize(self.global_outputs.len(), ucount::MAX);
         // not_local 不再改变了
         let not_local = not_local;
 
@@ -83,7 +86,7 @@ where
         while mapped.len() < self.topology.len() {
             for (kn, (inputs, outputs)) in &self.topology {
                 // 过滤映射过的节点
-                if mapped.contains(&kn) {
+                if mapped.contains(kn) {
                     continue;
                 }
                 // 发现新局部边
@@ -99,32 +102,32 @@ where
                 mapped.insert(kn.clone());
                 nodes.push(self.nodes.remove(kn).unwrap());
                 topo_nodes.push(Node {
-                    local_edges_len: new_local.len(),
-                    inputs_len: inputs.len(),
-                    outputs_len: outputs.len(),
+                    local_edges_len: new_local.len() as _,
+                    inputs_len: inputs.len() as _,
+                    outputs_len: outputs.len() as _,
                 });
                 // 映射边
                 for edge in new_local {
-                    key_to_idx.insert(edge, edges.len());
+                    key_to_idx.insert(edge, edges.len() as ucount);
                     edges.push(self.edges.remove(edge).unwrap_or_default());
                 }
                 for edge in outputs {
-                    key_to_idx.insert(edge, edges.len());
+                    key_to_idx.insert(edge, edges.len() as ucount);
                     edges.push(self.edges.remove(edge).unwrap_or_default());
                 }
                 // 映射连接
-                connections.extend(inputs.iter().map(|ke| OutputEdge(key_to_idx[ke])));
+                connections.extend(inputs.iter().map(|ke| key_to_idx[ke]));
             }
         }
         // 映射全图输出边
         for (i, edge) in self.global_outputs.iter().enumerate() {
-            connections[i] = OutputEdge(key_to_idx[edge]);
+            connections[i] = key_to_idx[edge];
         }
 
         Graph {
             topology: GraphTopo {
-                global_inputs_len: self.global_inputs.len(),
-                global_outputs_len: self.global_outputs.len(),
+                global_inputs_len: self.global_inputs.len() as _,
+                global_outputs_len: self.global_outputs.len() as _,
                 nodes: topo_nodes,
                 connections,
             },

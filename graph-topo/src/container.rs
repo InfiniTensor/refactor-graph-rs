@@ -1,12 +1,67 @@
-﻿use std::ops::{Add, Range};
+﻿use crate::ucount;
+use std::ops::{Add, Range};
+
+/// 图的基本形式。
+#[derive(Clone, Debug)]
+pub struct Graph<N, E> {
+    /// 节点和边的拓扑结构。
+    pub topology: GraphTopo,
+    /// 所有节点的信息。
+    pub nodes: Vec<N>,
+    /// 所有边的信息。
+    pub edges: Vec<E>,
+}
+
+impl<N, E> Graph<N, E> {
+    /// 计算图中边的引用计数。
+    pub fn edge_rc(&self) -> Vec<EdgeRc> {
+        let mut ans = vec![EdgeRc(0); self.edges.len()];
+        for edge_idx in self.topology.connections() {
+            ans[edge_idx].0 += 1;
+        }
+        for edge_idx in self.topology.global_outputs() {
+            ans[edge_idx] = EdgeRc::GLOBAL;
+        }
+        ans
+    }
+}
+
+/// 边引用计数类型。
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct EdgeRc(u16);
+
+impl EdgeRc {
+    const GLOBAL: Self = Self(u16::MAX);
+
+    /// 判断是否全图出边。
+    #[inline]
+    pub const fn is_global(self) -> bool {
+        self.0 == Self::GLOBAL.0
+    }
+
+    /// 判断是否未被引用。
+    #[inline]
+    pub const fn is_free(self) -> bool {
+        self.0 == 0
+    }
+
+    /// 释放一个引用并判断是否边不再被引用。
+    #[inline]
+    pub fn free(&mut self) -> bool {
+        debug_assert_ne!(self.0, 0);
+        self.0 -= 1;
+        self.0 == 0
+    }
+}
 
 /// 图拓扑结构。
 #[derive(Clone, Default, Debug)]
 pub struct GraphTopo {
     /// 全图输入边的数量。
-    pub(super) global_inputs_len: usize,
+    pub(super) global_inputs_len: ucount,
     /// 全图输出边的数量。
-    pub(super) global_outputs_len: usize,
+    pub(super) global_outputs_len: ucount,
     /// 节点集合。
     ///
     /// 节点集合是图中节点的一种符合拓扑序的排列。
@@ -17,38 +72,7 @@ pub struct GraphTopo {
     /// 首先是每个节点的输入边，最后是全图的输出边。
     ///
     /// 即：`connections.len() == nodes.sum(inputs_len) + global_outputs_lenws`。
-    pub(super) connections: Vec<OutputEdge>,
-}
-
-/// 用于保存构建结果的数据结构，对节点和边重新排序。
-#[derive(Clone, Debug)]
-pub struct Graph<Node, Edge> {
-    /// 节点和边的拓扑结构。
-    pub topology: GraphTopo,
-    /// 所有节点的信息。
-    pub nodes: Vec<Node>,
-    /// 所有边的信息。
-    pub edges: Vec<Edge>,
-}
-
-/// 节点结构。
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub(super) struct Node {
-    pub(super) local_edges_len: usize,
-    pub(super) inputs_len: usize,
-    pub(super) outputs_len: usize,
-}
-
-/// 作为节点输入的边序号。
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct OutputEdge(pub usize);
-
-/// 用于遍历图拓扑的结构。
-pub struct Iter<'a> {
-    inner: &'a GraphTopo,
-    i: usize,
-    pass_connections: usize,
-    pass_edges: usize,
+    pub(super) connections: Vec<ucount>,
 }
 
 impl GraphTopo {
@@ -58,7 +82,7 @@ impl GraphTopo {
         Iter {
             inner: self,
             i: 0,
-            pass_connections: 0,
+            pass_connections: self.global_outputs_len,
             pass_edges: self.global_inputs_len,
         }
     }
@@ -70,43 +94,53 @@ impl GraphTopo {
     }
 
     /// 节点数量。
+    #[inline]
     pub fn nodes_len(&self) -> usize {
         self.nodes.len()
     }
 
     /// 计算图中边的总数。
-    pub fn calculate_edge_len(&self) -> usize {
+    pub fn calculate_edges_len(&self) -> usize {
         self.nodes
             .iter()
-            .map(|node| node.local_edges_len + node.outputs_len)
+            .map(|node| node.local_edges_len as usize + node.outputs_len as usize)
             .sum::<usize>()
-            .add(self.global_outputs_len)
+            .add(self.global_outputs_len as usize)
     }
 
     /// 全图输入边的数量。
+    #[inline]
     pub const fn global_inputs_len(&self) -> usize {
-        self.global_inputs_len
+        self.global_inputs_len as _
     }
 
     /// 全图输出边的数量。
+    #[inline]
     pub const fn global_outputs_len(&self) -> usize {
-        self.global_outputs_len
+        self.global_outputs_len as _
     }
 
     /// 全图输入边集。
-    pub const fn global_inputs(&self) -> Range<usize> {
-        0..self.global_inputs_len
+    #[inline]
+    pub const fn global_inputs(&self) -> EdgeRange {
+        0..self.global_inputs_len as _
     }
 
     /// 全图输出边集。
-    pub fn global_outputs(&self) -> &[OutputEdge] {
-        &self.connections[..self.global_outputs_len]
+    #[inline]
+    pub fn global_outputs(&self) -> EdgeIndices {
+        EdgeIndices(&self.connections[..self.global_outputs_len as _])
+    }
+
+    /// 图中所有边连接关系。
+    #[inline]
+    pub fn connections(&self) -> EdgeIndices {
+        EdgeIndices(&self.connections)
     }
 }
 
 impl<'a> IntoIterator for &'a GraphTopo {
-    type Item = (usize, &'a [OutputEdge], Range<usize>);
-
+    type Item = (usize, EdgeIndices<'a>, EdgeRange);
     type IntoIter = Iter<'a>;
 
     #[inline]
@@ -115,24 +149,88 @@ impl<'a> IntoIterator for &'a GraphTopo {
     }
 }
 
+/// 节点结构。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub(super) struct Node {
+    pub(super) local_edges_len: ucount,
+    pub(super) inputs_len: ucount,
+    pub(super) outputs_len: ucount,
+}
+
+/// 边序号范围。
+pub type EdgeRange = Range<usize>;
+
+/// 边序号表的引用。
+#[derive(Clone, Debug)]
+pub struct EdgeIndices<'a>(&'a [ucount]);
+
+pub mod edge_indices {
+    use super::{ucount, EdgeIndices};
+    use std::ops::Deref;
+
+    impl Deref for EdgeIndices<'_> {
+        type Target = [ucount];
+
+        #[inline]
+        fn deref(&self) -> &Self::Target {
+            self.0
+        }
+    }
+
+    impl<'a> IntoIterator for EdgeIndices<'a> {
+        type Item = usize;
+        type IntoIter = Iter<'a>;
+
+        #[inline]
+        fn into_iter(self) -> Self::IntoIter {
+            Iter(self.0)
+        }
+    }
+
+    pub struct Iter<'a>(&'a [ucount]);
+
+    impl Iterator for Iter<'_> {
+        type Item = usize;
+
+        #[inline]
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.0.split_first() {
+                Some((head, tail)) => {
+                    self.0 = tail;
+                    Some(*head as _)
+                }
+                None => None,
+            }
+        }
+    }
+}
+
+/// 用于遍历图拓扑的结构。
+pub struct Iter<'a> {
+    inner: &'a GraphTopo,
+    i: ucount,
+    pass_connections: ucount,
+    pass_edges: ucount,
+}
+
 impl<'a> Iterator for Iter<'a> {
-    type Item = (usize, &'a [OutputEdge], Range<usize>);
+    type Item = (usize, EdgeIndices<'a>, EdgeRange);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
+        let i = self.i as usize;
         let node = self.inner.nodes.get(i)?;
         self.i += 1;
 
-        let first_input = self.pass_connections;
+        let first_input = self.pass_connections as _;
         self.pass_connections += node.inputs_len;
         self.pass_edges += node.local_edges_len;
-        let first_edge = self.pass_edges;
+        let first_edge = self.pass_edges as _;
         self.pass_edges += node.outputs_len;
 
         Some((
             i,
-            &self.inner.connections[first_input..self.pass_connections],
-            first_edge..self.pass_edges,
+            EdgeIndices(&self.inner.connections[first_input..self.pass_connections as _]),
+            first_edge..self.pass_edges as _,
         ))
     }
 }

@@ -1,3 +1,11 @@
 [workspace]
-members = ["common", "graph-topo"]
+members = [
+    "common",
+    "graph-topo",
+    "computation",
+    "stack-calculator",
+    "runtimes/kernel-meta",
+    "runtimes/cpu",
+    "runtimes/nvidia",
+]
 resolver = "2"
